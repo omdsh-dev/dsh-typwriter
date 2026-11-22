@@ -5,6 +5,11 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+Plugin (DSH `dsh-typwriter`, released as npm 1.7.6):
+
+- fix: compile-on-save now writes **where the project says**, not into a hardcoded `output/`. It reads `.texpile/config.json`'s `outputs.pdf` first (a project that builds into `输出/研究计划.pdf` keeps working), and only falls back to `output/<main>.pdf`.
+- feat: `pickExportTarget` implemented — Typst's own Export (PDF/PNG/SVG) was greyed out because the plugin had no save dialog. A native one now comes from the host (`dialog:saveFile`: PowerShell SaveFileDialog on Windows, `osascript` on macOS; other platforms report unsupported).
+
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.5):
 
 - fix: **saving a `.typ` now regenerates the PDF on disk** — the live preview is tinymist's in-memory stream, and nothing wrote a file on save, so the folder's PDF stayed at the old version while the pane looked current. `fs:write` now schedules one debounced `tinymist compile` into `output/<main>.pdf` (same layout as the compile command), 1.2 s after the last save.

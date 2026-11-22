@@ -528,6 +528,21 @@
         return null;
       });
     },
+    // Typst 导出（PDF/PNG/SVG）先问「存到哪」：file 走原生保存对话框，folder 复用目录选择器。
+    // Texpile 用 exportTargetAvailable() 判断这个函数在不在，所以必须一直有定义。
+    pickExportTarget: function (req) {
+      var kind = (req && req.kind) || 'file';
+      if (kind === 'folder') {
+        return chooseDirectory((req && req.title) || '选择导出目录');
+      }
+      return invoke('dialog:saveFile', {
+        defaultPath: (req && req.defaultPath) || '',
+        title: (req && req.title) || '保存',
+        extension: (req && req.extension) || 'pdf'
+      }).catch(function () {
+        return null;
+      });
+    },
     // 全局 snippets 文件：Electron 版有独立文件；插件版没有这个入口。返回空实现，
     // 否则调用方的 ?.readGlobal() 会在 bridge 存在但方法缺失时抛 TypeError（host.log 里刷屏）。
     readGlobal: function () {

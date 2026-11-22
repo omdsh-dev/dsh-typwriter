@@ -9,7 +9,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
-import { delimiter, join, relative, sep } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 const DEBOUNCE_MS = 1200;
 
@@ -59,16 +59,20 @@ export class TypstSaveCompiler {
     this.jobs.set(root, state);
     state.running = true;
     try {
-      const main = await this.#mainOf(root, path);
-      if (!main) return;
-      const stem = main.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
-      const outDir = join(root, 'output');
+      const cfg = await this.#config(root, path);
+      if (!cfg.main) return;
+      const stem = cfg.main.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
+      // 出片路径跟着项目配置走：.texpile/config.json 的 outputs.pdf 就是作者真正在看的那个文件
+      // （例如「输出/研究计划.pdf」）。没配才回落到应用默认的 output/<main>.pdf。
+      const out = cfg.pdf ? (isAbsolute(cfg.pdf) ? cfg.pdf : join(root, cfg.pdf)) : join(root, 'output', `${stem}.pdf`);
+      const outDir = dirname(out);
       await mkdir(outDir, { recursive: true });
-      const out = join(outDir, `${stem}.pdf`);
       const log = join(outDir, `${stem}.log`);
       const started = Date.now();
-      const code = await this.#run(root, main, out, log);
-      this.logger?.write?.(`[compile-on-save] tinymist compile ${main} -> output/${stem}.pdf exit=${code} ${Date.now() - started}ms`);
+      const code = await this.#run(root, cfg.main, out, log);
+      this.logger?.write?.(
+        `[compile-on-save] tinymist compile ${cfg.main} -> ${out.slice(root.length + 1).replace(/\\/g, '/')} exit=${code} ${Date.now() - started}ms`
+      );
     } catch (e) {
       this.logger?.write?.(`[compile-on-save] failed: ${e?.stack || e}`);
     } finally {
@@ -80,16 +84,17 @@ export class TypstSaveCompiler {
     }
   }
 
-  /** 主文件来自项目配置（.texpile/config.json 的 main），否则就用刚保存的这个 .typ */
-  async #mainOf(root, saved) {
+  /** 主文件与出片路径：项目配置优先，读不到就用刚保存的这个 .typ + 应用默认的 output/ */
+  async #config(root, saved) {
+    let cfg = {};
     try {
-      const raw = await readFile(join(root, '.texpile', 'config.json'), 'utf8');
-      const cfg = JSON.parse(raw);
-      if (typeof cfg?.main === 'string' && /\.typ$/i.test(cfg.main)) return cfg.main;
+      cfg = JSON.parse(await readFile(join(root, '.texpile', 'config.json'), 'utf8')) ?? {};
     } catch {
       /* 没有项目配置就走兜底 */
     }
-    return saved.slice(root.length + 1) || null;
+    const main = typeof cfg?.main === 'string' && /\.typ$/i.test(cfg.main) ? cfg.main : saved.slice(root.length + 1);
+    const pdf = typeof cfg?.outputs?.pdf === 'string' && cfg.outputs.pdf.trim() ? cfg.outputs.pdf.trim() : null;
+    return { main, pdf };
   }
 
   #run(root, main, out, log) {

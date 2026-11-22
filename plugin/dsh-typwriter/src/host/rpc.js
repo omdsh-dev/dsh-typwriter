@@ -12,6 +12,7 @@ import * as permissions from './permissions.js';
 import { AcpHost } from './acp.js';
 import { TinymistInstaller } from './tinymist.js';
 import { TypstSaveCompiler } from './typst-save.js';
+import { saveFileDialog } from './dialog.js';
 import { dshHome } from './state.js';
 import { preparedPreviewHtml } from './previewPage.js';
 
@@ -118,7 +119,10 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
         return null;
       }
     },
-    // 平台只提供目录选择器，没有「选单个文件」的能力；返回 null 让渲染端静默跳过
+    // 原生「保存为…」：Typst 的导出入口（pickExportTarget）要它；平台只给目录选择器，
+    // 单文件保存由 host/dialog.js 弹系统对话框（Windows/macOS，其它平台返回 null）
+    'dialog:saveFile': (opts) => saveFileDialog({ ...(opts || {}), logger }),
+    // 平台只提供目录选择器，没有「选任意已有文件」的能力；返回 null 让渲染端静默跳过
     'dialog:pickFile': () => null,
     'dialog:messageBox': () => null,
     'menu:popup': () => null,
