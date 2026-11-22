@@ -11,6 +11,7 @@ import * as wordexport from './wordexport.js';
 import * as permissions from './permissions.js';
 import { AcpHost } from './acp.js';
 import { TinymistInstaller } from './tinymist.js';
+import { TypstSaveCompiler } from './typst-save.js';
 import { dshHome } from './state.js';
 import { preparedPreviewHtml } from './previewPage.js';
 
@@ -28,6 +29,9 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     if (s.agentInheritHostPlugins === false) return join(dshHome(), 'typwriter-agent');
     return dshHome();
   };
+
+  // 保存 .typ 之后补一次编译：实时预览只在内存里，磁盘上的 PDF 不会自己更新
+  const compileOnSave = new TypstSaveCompiler({ binDir, logger, store });
 
   // 自带 tinymist 的安装器：插件包不再随附 bin/，所以「安装」必须真的能装（issue #22）
   const tinymist = new TinymistInstaller({
@@ -158,7 +162,12 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     'fs:tree': (root) => fsops.fsTree(root),
     'fs:treeScan': (root, exts) => fsops.fsTreeScan(root, exts),
     'fs:read': (path) => fsops.fsRead(path),
-    'fs:write': (path, content) => fsops.fsWrite(path, content),
+    'fs:write': async (path, content) => {
+      const r = await fsops.fsWrite(path, content);
+      // 保存即出片：防抖后跑一次 tinymist compile，让文件夹里的 PDF 跟上源码
+      compileOnSave.touch(path);
+      return r;
+    },
     'fs:writeBinary': (path, bytes) => fsops.fsWriteBinary(path, bytes),
     'fs:stat': (path) => fsops.fsStat(path),
     'fs:probe': (path) => fsops.fsProbe(path),

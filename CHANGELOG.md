@@ -5,6 +5,10 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+Plugin (DSH `dsh-typwriter`, released as npm 1.7.5):
+
+- fix: **saving a `.typ` now regenerates the PDF on disk** — the live preview is tinymist's in-memory stream, and nothing wrote a file on save, so the folder's PDF stayed at the old version while the pane looked current. `fs:write` now schedules one debounced `tinymist compile` into `output/<main>.pdf` (same layout as the compile command), 1.2 s after the last save.
+
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.4):
 
 - feat: **Edit › Save current PDF** — the entry now sits in the Edit menu (where the user asked for it), enabled only while a PDF is open; it drives the same save path as the toolbar item.
