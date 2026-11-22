@@ -481,6 +481,26 @@
     );
   }
 
+  // 保存 PDF 后的一句反馈：Texpile 的 savePdfBytes 没有返回值消费方，桌面版靠系统对话框说话，
+  // 插件版回落写盘时需要一个「存哪了」的提示，所以自己画一个 3 秒消失的 toast。
+  function pdfToast(text) {
+    try {
+      var el = document.createElement('div');
+      el.textContent = text;
+      el.style.cssText =
+        'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:2147483647;' +
+        'max-width:70vw;padding:8px 14px;border-radius:8px;background:rgba(20,22,26,.92);' +
+        'color:#fff;font:12px/1.5 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35);' +
+        'pointer-events:none;word-break:break-all;';
+      document.body.appendChild(el);
+      setTimeout(function () {
+        el.remove();
+      }, 3000);
+    } catch {
+      /* 没有 body 就算了 */
+    }
+  }
+
   // ================= window.texpileNative =================
   window.texpileNative = {
     // 必须是同步的：Texpile 在首帧之前就读它（openWorkspace.ts 的 bootOpen）
@@ -575,6 +595,46 @@
     fsWriteBinary: function (path, bytes) {
       return invoke('fs:writeBinary', path, bytes);
     },
+    // 保存 PDF（Texpile 的 PDF 工具栏「保存 PDF」→ savePdfBytes）：
+    // 优先系统「另存为」对话框（File System Access API，用户自选位置与文件名）；
+    // 不支持或被拒时回落到宿主路由 /typwriter/api/pdf-save，写进当前论文目录。
+    // 用户主动取消（AbortError）不回落——那就是不想要这个文件。
+    savePdfBytes: async function (body) {
+      var name = (body && body.defaultName) || 'document.pdf';
+      var src = body && body.bytes;
+      if (!src) return { saved: false };
+      var data = src instanceof Uint8Array ? src : new Uint8Array(src);
+      try {
+        if (typeof window.showSaveFilePicker === 'function') {
+          var handle = await window.showSaveFilePicker({
+            suggestedName: name,
+            types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]
+          });
+          var writable = await handle.createWritable();
+          await writable.write(data);
+          await writable.close();
+          pdfToast('已保存：' + handle.name);
+          return { saved: true, path: handle.name };
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return { saved: false };
+        // 其余（自定义协议下 NotAllowed/SecurityError）走回落
+      }
+      try {
+        var res = await fetch('/typwriter/api/pdf-save?name=' + encodeURIComponent(name), { method: 'POST', body: data });
+        var out = await res.json().catch(function () {
+          return null;
+        });
+        if (out && out.saved) {
+          pdfToast('已保存到 ' + out.path);
+          return out;
+        }
+        return { saved: false, error: (out && out.error) || 'HTTP ' + res.status };
+      } catch (e) {
+        return { saved: false, error: String((e && e.message) || e) };
+      }
+    },
+
     fsStat: function (path) {
       return invoke('fs:stat', path);
     },

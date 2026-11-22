@@ -1,6 +1,7 @@
 // dsh-typwriter host 半片：把 Texpile 的渲染端 SPA 挂在 /typwriter 下，
 // 并提供它需要的 bridge（RPC / 原始字节 / SSE / 终端）。
 import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +25,18 @@ const SHIM_FILE = join(PLUGIN_ROOT, 'src', 'browser', 'shim.js');
 export const name = 'dsh-typwriter';
 
 const BASE = '/typwriter';
+
+/** 只取基名、去掉非法字符、强制 .pdf：面板传来的 defaultName 可能是任意路径 */
+function sanitizePdfName(raw) {
+  const base = String(raw || '')
+    .split(/[\\/]/)
+    .pop()
+    .trim()
+    .replace(/[\u0000-\u001f<>:"|?*]/g, '')
+    .slice(0, 120);
+  const name = base && base !== '.pdf' ? base : 'document';
+  return /\.pdf$/i.test(name) ? name : `${name}.pdf`;
+}
 
 /** 插件路由绕过 DSH 的 /api 信任栅栏，必须自己校验 */
 function requestRejection(ctx, req) {
@@ -187,6 +200,41 @@ export default {
 		// 0) 原始字节（取代 texfile://）
       if (p === `${BASE}/api/file`) {
         return serveFileBytes(req, res, { allowedRoots });
+      }
+
+      // 0b) 保存 PDF：面板把 PDF 的字节 POST 上来（showSaveFilePicker 不可用时的回落）。
+      //     落到当前论文目录；没有打开工作区时落到 $DSH_HOME/typwriter/exports。
+      //     重名不覆盖：<name> (1).pdf、<name> (2).pdf …
+      if (p === `${BASE}/api/pdf-save` && req.method === 'POST') {
+        const raw = await new Promise((resolve, reject) => {
+          const chunks = [];
+          let size = 0;
+          req.on('data', (c) => {
+            size += c.length;
+            if (size > 256 * 1024 * 1024) {
+              reject(new Error('PDF too large'));
+              req.destroy();
+              return;
+            }
+            chunks.push(c);
+          });
+          req.on('end', () => resolve(Buffer.concat(chunks)));
+          req.on('error', reject);
+        }).catch((e) => {
+          sendJson(res, 413, { saved: false, error: String(e?.message || e) });
+          return null;
+        });
+        if (!raw) return;
+        if (!raw.length) return sendJson(res, 400, { saved: false, error: 'empty body' });
+        const dir = (await store.getActiveRoot()) || join(dshHome(), 'typwriter', 'exports');
+        const wanted = sanitizePdfName(url.searchParams.get('name'));
+        await mkdir(dir, { recursive: true });
+        let target = join(dir, wanted);
+        const stem = wanted.replace(/\.pdf$/i, '');
+        for (let n = 1; existsSync(target) && n < 1000; n++) target = join(dir, `${stem} (${n}).pdf`);
+        await writeFile(target, raw);
+        logger.write(`[pdf-save] ${target} (${raw.length} B)`);
+        return sendJson(res, 200, { saved: true, path: target });
       }
 
       // 2) SSE
