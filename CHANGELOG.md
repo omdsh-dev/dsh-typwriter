@@ -5,6 +5,10 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+Plugin (DSH `dsh-typwriter`, released as npm 1.7.2):
+
+- feat: the PDF toolbar's **Save PDF** now works — the browser's save dialog where available, otherwise the bytes are written into the open paper folder (deduped) with a toast naming the file. It was wired to `window.texpileNative.savePdfBytes`, which the shim never implemented, so the item existed and did nothing.
+
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.1):
 
 - fix: the host really installs tinymist (and the typst CLI) when `bin/` is missing — download, verify by running it, unpack, with progress over SSE (#22)
