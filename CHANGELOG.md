@@ -8,9 +8,9 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.4):
 
 - feat: **Edit › Save current PDF** — the entry now sits in the Edit menu (where the user asked for it), enabled only while a PDF is open; it drives the same save path as the toolbar item.
-- fix: 1.7.3 shipped the *unpruned* app (7612 files / 80 MB) by mistake — the build was copied in after the slim step. 1.7.4 is the slim package again (708 files / 22.8 MB app).
+- fix: the 1.7.3 publish was staged with the *unpruned* app (7612 files / 80 MB) — the build was copied in after the slim step — and never became visible; it was superseded by 1.7.4 (708 files / 22.8 MB app).
 
-Plugin (DSH `dsh-typwriter`, released as npm 1.7.3, withdrawn):
+Plugin (DSH `dsh-typwriter`, released as npm 1.7.3, never published):
 
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.2):
 
