@@ -5,6 +5,10 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+Plugin (DSH `dsh-typwriter`, released as npm 1.7.3):
+
+- feat: **Edit › Save current PDF** — the entry now sits in the Edit menu (where the user asked for it), enabled only while a PDF is open; it drives the same save path as the toolbar item.
+
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.2):
 
 - feat: the PDF toolbar's **Save PDF** now works — the browser's save dialog where available, otherwise the bytes are written into the open paper folder (deduped) with a toast naming the file. It was wired to `window.texpileNative.savePdfBytes`, which the shim never implemented, so the item existed and did nothing.

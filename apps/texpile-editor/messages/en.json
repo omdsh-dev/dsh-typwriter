@@ -530,6 +530,7 @@
 	"menubar_undo": "Undo",
 	"menubar_redo": "Redo",
 	"menubar_find": "Find…",
+	"menubar_save_pdf": "Save current PDF",
 	"menubar_menu_view": "View",
 	"menubar_interface_zoom": "Interface zoom: {percent}%",
 	"menubar_zoom_in": "Zoom In",

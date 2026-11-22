@@ -5,6 +5,7 @@
 // read the mark/node off the view's OWN schema - the tex, md and typ editors are three different
 // Schema objects, and a MarkType from one must never be dispatched into another.
 import { toggleSearchPanel } from '$lib/editor/source/extensions/search-panel/searchPanel.svelte';
+import { pdfSave } from '$lib/preview/pdfSaveAction.svelte';
 import { EditorView as CMView } from '@codemirror/view';
 import { ySyncFacet } from 'y-codemirror.next';
 import { fileHistoryKeymap } from '$lib/editor/source/cmUndoKeys';
@@ -88,6 +89,11 @@ export function cmReplace(cm: CMView, before: string, after = '') {
 }
 
 export function editSelect(value: string) {
+	// 保存当前 PDF：跟编辑器命令、PDF 查找都无关，所以放在最前面，不被下面的早退吃掉
+	if (value === 'savePdf') {
+		void pdfSave.run();
+		return;
+	}
 	// a .pdf tab has no editor: Find is the viewer's, the rest has nothing to act on. A PDF view with the focus
 	// takes Find from the editor beside it. Not while typing somewhere else (the macOS accelerator fires
 	// wherever focus is), same rule as the window shortcut

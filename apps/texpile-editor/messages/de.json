@@ -530,6 +530,7 @@
 	"menubar_undo": "Rückgängig",
 	"menubar_redo": "Wiederholen",
 	"menubar_find": "Suchen…",
+	"menubar_save_pdf": "Aktuelles PDF speichern",
 	"menubar_menu_view": "Ansicht",
 	"menubar_interface_zoom": "Oberflächenzoom: {percent} %",
 	"menubar_zoom_in": "Vergrößern",

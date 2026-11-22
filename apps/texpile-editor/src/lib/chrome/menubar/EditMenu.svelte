@@ -5,6 +5,7 @@
 	import { combo } from '$lib/chrome/shortcutText';
 	import { isMac } from '$lib/platform';
 	import { m } from '$lib/paraglide/messages';
+	import { pdfSave } from '$lib/preview/pdfSaveAction.svelte';
 
 	// findable without editable: a .pdf tab, where Find is the viewer's and the rest has nothing to act on
 	let {
@@ -38,6 +39,11 @@
 				<Menu.Separator class={separatorClass} />
 				<Menu.Item value="find" class={menuBarItemClass} disabled={!findable}
 					><Menu.ItemText>{m.menubar_find()}</Menu.ItemText><span class="text-muted">{combo('F')}</span></Menu.Item
+				>
+				<!-- 保存当前预览的 PDF：放在「编辑」里，和查找同一组；没有 PDF 时灰掉 -->
+				<Menu.Separator class={separatorClass} />
+				<Menu.Item value="savePdf" class={menuBarItemClass} disabled={!pdfSave.available}
+					><Menu.ItemText>{m.menubar_save_pdf()}</Menu.ItemText></Menu.Item
 				>
 			</Menu.Content>
 		</Menu.Positioner>

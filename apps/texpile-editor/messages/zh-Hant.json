@@ -530,6 +530,7 @@
 	"menubar_undo": "復原",
 	"menubar_redo": "重做",
 	"menubar_find": "尋找…",
+	"menubar_save_pdf": "儲存目前 PDF",
 	"menubar_menu_view": "檢視",
 	"menubar_interface_zoom": "介面縮放：{percent}%",
 	"menubar_zoom_in": "放大",

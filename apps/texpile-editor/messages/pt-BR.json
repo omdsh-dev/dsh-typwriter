@@ -530,6 +530,7 @@
 	"menubar_undo": "Desfazer",
 	"menubar_redo": "Refazer",
 	"menubar_find": "Localizar…",
+	"menubar_save_pdf": "Salvar o PDF atual",
 	"menubar_menu_view": "Exibir",
 	"menubar_interface_zoom": "Zoom da interface: {percent}%",
 	"menubar_zoom_in": "Aumentar zoom",

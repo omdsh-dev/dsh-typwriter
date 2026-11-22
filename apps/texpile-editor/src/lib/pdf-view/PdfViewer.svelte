@@ -9,6 +9,7 @@
 	import type { Snippet } from 'svelte';
 	import { setPdfViewerContext, type PdfViewerActions, type PdfSource } from './pdf-viewer/context';
 	import { PdfViews } from './pdfViews.svelte';
+	import { pdfSave } from '$lib/preview/pdfSaveAction.svelte';
 
 	type Props = {
 		/** PDF source - URL string, ArrayBuffer, Uint8Array, or Blob */
@@ -51,6 +52,12 @@
 		untrack(() => initialScale),
 		untrack(() => !!onSavePdf)
 	);
+
+	// 菜单栏「保存当前 PDF」的落点：查看器在，就有东西可存；卸载就把入口灰掉
+	$effect(() => {
+		if (!onSavePdf) return;
+		return pdfSave.register(() => savePdf());
+	});
 
 	/**
 	 * Hand the PDF to whoever is hosting this viewer. This is a desktop app: the document is
