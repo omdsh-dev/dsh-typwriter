@@ -69,6 +69,59 @@ const noRunesInWorkers: Plugin = {
 	}
 };
 
+// Typwriter (the DSH plugin) always opens #/workspace, so the workspace route's chunk is wanted with
+// the entry. Vite preloads only the entry's own static imports: the route's own group of chunks waits
+// for the entry module to run first, a second waterfall on every open of the panel. With
+// TYPWRITER_BUILD=1 the route's chunk and its static dependencies get modulepreload tags as well.
+type BuiltChunk = { fileName: string; isEntry?: boolean; imports: string[]; dynamicImports: string[] };
+const preloadWorkspaceRoute: Plugin = {
+	name: 'typwriter:preload-workspace-route',
+	apply: 'build',
+	transformIndexHtml: {
+		order: 'post',
+		handler(html, ctx) {
+			if (process.env.TYPWRITER_BUILD !== '1' || !ctx.bundle) return html;
+			// the URL prefix Vite itself gave the entry script: the same one its modulepreload tags use.
+			// (Read from the page rather than the resolved config, which Vite resolves again per
+			// environment and where the base can differ from the one the page was written with.)
+			const base = /<script[^>]*\ssrc="([^"]*\/)assets\/index-[\w-]+\.js"/.exec(html)?.[1] ?? './';
+			// rollup's chunk records, read through the few fields used here
+			const chunks = Object.values(ctx.bundle)
+				.filter((c) => c.type === 'chunk')
+				.map((c) => c as BuiltChunk);
+			const byName = new Map(chunks.map((c) => [c.fileName, c]));
+			// a chunk and everything it imports statically
+			const closure = (start: BuiltChunk): Set<string> => {
+				const seen = new Set<string>();
+				const walk = (c: BuiltChunk) => {
+					for (const name of c.imports) {
+						if (seen.has(name)) continue;
+						seen.add(name);
+						const next = byName.get(name);
+						if (next) walk(next);
+					}
+				};
+				walk(start);
+				return seen;
+			};
+			const entry = chunks.find((c) => c.isEntry);
+			// the chunks the entry loads on demand and names WorkspaceView: the route App.svelte imports
+			const routes = chunks.filter((c) => /(^|\/)WorkspaceView-[\w-]+\.js$/.test(c.fileName) && entry?.dynamicImports.includes(c.fileName));
+			if (!entry || !routes.length) {
+				this.warn('typwriter: the workspace route chunk was not found; nothing extra is preloaded');
+				return html;
+			}
+			const withEntry = closure(entry);
+			const wanted = [...new Set(routes.flatMap((route) => [route.fileName, ...closure(route)]))].filter(
+				(n) => !withEntry.has(n) && !html.includes(n)
+			);
+			if (!wanted.length) return html;
+			const tags = wanted.map((n) => `<link rel="modulepreload" crossorigin href="${base}${n}">`).join('\n    ');
+			return html.replace('</head>', `    ${tags}\n  </head>`);
+		}
+	}
+};
+
 export default defineConfig(({ mode }) => ({
 	plugins: [
 		tailwindcss(),
@@ -84,7 +137,8 @@ export default defineConfig(({ mode }) => ({
 		}),
 		// the spelling dictionaries for languages other than English
 		...(mode === 'test' ? [] : [spellDictionaries(__dirname)]),
-		packageData(PACKAGE_DATA)
+		packageData(PACKAGE_DATA),
+		...(process.env.TYPWRITER_BUILD === '1' ? [preloadWorkspaceRoute] : [])
 	],
 
 	// relative asset URLs: the packaged app is served from the app:// scheme (electron/src/main.ts),

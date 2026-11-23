@@ -19,7 +19,7 @@
 // 再由渲染端跨源 iframe 嵌入。postMessage 桥本来就是跨源设计的，不需要同源。
 
 import { createServer } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 // 页面只需要：内联脚本/内联样式、内联 wasm、data:/blob: 图片字体、以及连 tinymist 的
 // loopback http/ws。其余一律关掉（与 Texpile electron/src/ipc/typstPreviewIpc.ts 同源策略一致）。
@@ -116,8 +116,8 @@ export class PreviewPageServer {
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
       'content-length': Buffer.byteLength(page),
-      // 页面是 tinymist 二进制内嵌的那份 + 我们的注入，随会话变化，不能缓存
-      'cache-control': 'no-store',
+      // 地址按内容寻址（serve 里的 sha1）：同一地址永远是同一份页面，可以长缓存
+      'cache-control': 'public, max-age=31536000, immutable',
       'content-security-policy': HOST_PAGE_CSP,
       'referrer-policy': 'no-referrer'
     });
@@ -132,7 +132,11 @@ export class PreviewPageServer {
    */
   async serve(html) {
     const port = await this.#ensure();
-    const id = randomBytes(16).toString('hex');
+    // 地址按内容寻址：同一份页面（同一个 tinymist 数据面 + 同一套主题）地址不变，
+    // 浏览器就能长缓存——这是一页 1.6MB 的内联 wasm，每次重开都重下重编译很浪费。
+    const id = createHash('sha1').update(String(html)).digest('hex');
+    // 重新登记同一份页面时刷新它在淘汰顺序里的位置
+    this.pages.delete(id);
     this.pages.set(id, String(html));
     while (this.pages.size > MAX_PAGES) {
       const oldest = this.pages.keys().next().value;
