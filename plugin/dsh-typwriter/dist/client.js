@@ -27,6 +27,76 @@ module.exports = __toCommonJS(index_exports);
 var React = require("react");
 var KEY = "typwriter";
 var SRC = "/typwriter/#/workspace";
+var KEEP_ALIVE_KEY = "typwriter:keep-alive";
+function keepAlive() {
+  try {
+    return localStorage.getItem(KEEP_ALIVE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+var resident = null;
+function scheduleSync() {
+  const state = resident;
+  if (!state || state.raf) return;
+  state.raf = requestAnimationFrame(() => {
+    state.raf = 0;
+    const { frame } = state;
+    let rect = null;
+    for (const anchor of state.anchors) {
+      const r = anchor.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        rect = r;
+        break;
+      }
+    }
+    if (!rect) {
+      if (frame.style.display !== "none") {
+        frame.style.display = "none";
+        try {
+          frame.contentWindow?.postMessage({ type: "typwriter:host-hidden" }, location.origin);
+        } catch {
+        }
+      }
+      return;
+    }
+    frame.style.display = "block";
+    frame.style.left = `${rect.left}px`;
+    frame.style.top = `${rect.top}px`;
+    frame.style.width = `${rect.width}px`;
+    frame.style.height = `${rect.height}px`;
+  });
+}
+function mountFrame(frame, anchor) {
+  let top = anchor;
+  while (top.parentElement && top.parentElement !== document.body) top = top.parentElement;
+  if (top.parentElement === document.body) top.after(frame);
+  else document.body.appendChild(frame);
+}
+function getResident(anchor) {
+  if (resident) return resident;
+  const frame = document.createElement("iframe");
+  frame.src = SRC;
+  frame.title = "Typwriter";
+  frame.setAttribute("allow", "clipboard-read; clipboard-write");
+  frame.style.cssText = "position:fixed;border:0;margin:0;background:transparent;display:none;";
+  mountFrame(frame, anchor);
+  resident = { frame, anchors: /* @__PURE__ */ new Set(), raf: 0, observer: null };
+  if (typeof ResizeObserver !== "undefined") resident.observer = new ResizeObserver(scheduleSync);
+  window.addEventListener("resize", scheduleSync);
+  return resident;
+}
+function attach(anchor) {
+  const state = getResident(anchor);
+  state.anchors.add(anchor);
+  state.observer?.observe(anchor);
+  scheduleSync();
+  return () => {
+    state.observer?.unobserve(anchor);
+    state.anchors.delete(anchor);
+    scheduleSync();
+  };
+}
 function Icon({ size }) {
   const s = size || 18;
   return React.createElement(
@@ -75,20 +145,22 @@ function Icon({ size }) {
   );
 }
 function TypwriterPage() {
-  return React.createElement("iframe", {
-    src: SRC,
-    title: "Typwriter",
-    // 占满主区；border 去掉，背景跟随主题
-    style: {
-      width: "100%",
-      height: "100%",
-      border: "0",
-      display: "block",
-      background: "transparent"
-    },
-    // 同源 iframe，允许脚本与同源 cookie
-    allow: "clipboard-read; clipboard-write"
-  });
+  const anchor = React.useRef(null);
+  const [residentMode] = React.useState(keepAlive);
+  React.useEffect(() => {
+    const node = anchor.current;
+    if (!node) return void 0;
+    return attach(node);
+  }, []);
+  if (!residentMode) {
+    return React.createElement("iframe", {
+      src: SRC,
+      title: "Typwriter",
+      style: { width: "100%", height: "100%", border: "0", display: "block", background: "transparent" },
+      allow: "clipboard-read; clipboard-write"
+    });
+  }
+  return React.createElement("div", { ref: anchor, style: { width: "100%", height: "100%" } });
 }
 var inject = ["slots"];
 function apply(ctx) {

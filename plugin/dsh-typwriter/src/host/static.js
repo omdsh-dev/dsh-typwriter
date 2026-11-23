@@ -124,17 +124,38 @@ export function injectIndex(html, { bootstrap, base }) {
   return html.slice(0, at) + boot + shim + html.slice(at);
 }
 
-export async function serveStatic(res, filePath) {
+/** 构建工具带哈希的产物（assets/xxx-1QAgkK4.js）：内容变了文件名就变，可以放心长缓存 */
+const HASHED = /-[\w-]{8}(\.[\w]+)+$/;
+/** 没带哈希的文件（index.html、shim.js、theme-init.js）：每次拿 ETag 来问，没变就 304 */
+const NO_CACHE = 'no-cache';
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+/**
+ * 送一个静态文件。带哈希的产物长缓存；其余按 ETag 协商，304 时不重传正文。
+ * 切回写作台要重新取九十多个文件，没有缓存头就等于每次整份重下。
+ */
+export async function serveStatic(req, res, filePath) {
   const st = await stat(filePath).catch(() => null);
   if (!st || !st.isFile()) {
     sendJson(res, 404, { error: 'not found' });
     return false;
   }
-  res.writeHead(200, {
+  const etag = `"${Math.round(st.mtimeMs)}-${st.size}"`;
+  const headers = {
     'content-type': typeOf(filePath),
-    'content-length': String(st.size),
-    'cache-control': 'no-cache'
-  });
+    'cache-control': HASHED.test(filePath) ? IMMUTABLE : NO_CACHE,
+    etag
+  };
+  if (req?.headers?.['if-none-match'] === etag) {
+    res.writeHead(304, { ...headers, 'content-length': '0' });
+    res.end();
+    return true;
+  }
+  res.writeHead(200, { ...headers, 'content-length': String(st.size) });
+  if (req?.method === 'HEAD') {
+    res.end();
+    return true;
+  }
   createReadStream(filePath).pipe(res);
   return true;
 }

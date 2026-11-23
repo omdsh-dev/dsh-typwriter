@@ -15,6 +15,7 @@ import { appFilePath, injectIndex, readIndex, sendJson, serveFileBytes, serveSta
 import { PreviewPageServer } from './previewServer.js';
 import { createLogger } from './log.js';
 import { WorkspaceWatcher } from './watch.js';
+import { hostBuild, hostStale } from './host-build.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HERE, '..', '..');
@@ -305,7 +306,7 @@ export default {
 
       // 4) shim
       if (p === `${BASE}/shim.js`) {
-        return serveStatic(res, SHIM_FILE);
+        return serveStatic(req, res, SHIM_FILE);
       }
 
       // 5) 首页：注入 bootstrap + shim
@@ -330,7 +331,8 @@ export default {
           });
         }
         const out = injectIndex(html, {
-          bootstrap: { open, settings },
+          // hostStale：磁盘上的宿主代码已经换了、运行中的还是旧的——界面据此提示重启或重载
+          bootstrap: { open, settings, hostBuild: hostBuild(), hostStale: await hostStale() },
           base: `${BASE}/`
         });
         res.writeHead(200, {
@@ -349,7 +351,7 @@ export default {
       const file = appFilePath(APP_DIR, rel);
       if (!file) return sendJson(res, 403, { error: 'forbidden' });
       // serveStatic 自己会发 404，这里不要重复写响应
-      return serveStatic(res, file);
+      return serveStatic(req, res, file);
     }
 
     ctx.effect(

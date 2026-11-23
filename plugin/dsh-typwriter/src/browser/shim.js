@@ -46,15 +46,47 @@
       return res.json();
     });
   }
+  // 页面级的一句话提示（宿主桥没有界面，只能自己画）：几秒后自动消失。
+  function pageNotice(text, ms) {
+    try {
+      if (!document.body) return;
+      var old = document.getElementById('typwriter-notice');
+      if (old) old.remove();
+      var box = document.createElement('div');
+      box.id = 'typwriter-notice';
+      box.setAttribute('role', 'status');
+      box.style.cssText =
+        'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);max-width:min(720px,86vw);z-index:2147483647;' +
+        'padding:10px 16px;border-radius:8px;font:13px/1.55 system-ui,sans-serif;background:#1f2430;color:#fff;' +
+        'box-shadow:0 6px 24px rgba(0,0,0,.32);white-space:pre-wrap;word-break:break-word';
+      box.textContent = text;
+      document.body.appendChild(box);
+      setTimeout(function () {
+        box.remove();
+      }, ms || 8000);
+    } catch (e) {
+      /* 画不出来也不影响调用方 */
+    }
+  }
+
+  // 超时按通道分类，不再一刀切：
+  //  - PATIENT：等再久也算正常（模型回话、下载、编译、用户还开着的对话框），不设超时；
+  //  - IDEMPOTENT：只读且可重复的通道，超时后重试一次；
+  //  - 其余（写入类）：超时就报错，不重发——上一次其实还在跑，重发会把一件事做两遍
+  //    （润色因此报过「上一次润色还在进行」，文件操作也会重复）。
+  var PATIENT = /^(acp:|agent:|dialog:|wordExport:|toolchain:probe|typst:(compile|resolve|lsp:start|preview:prepare|tinymist:(install|remove))|terminal:spawn|update:check)/;
+  var IDEMPOTENT = /^(fs:(read|stat|tree|treeScan|scan|probe|search|realRelative)|settings:get|window:bootstrap|shell:revealItem|terminal:available|typst:(packageFiles|tinymist:status)|acp:(detect|chats|config)|agent:(detect|listSkills|listPlugins|modelInfo|permissionGet|mcpList|zoteroToken)|git:(status|show|identity)|debug:log)/;
   function invoke(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
+    var patient = PATIENT.test(fn);
+    var mayRetry = IDEMPOTENT.test(fn);
     var attempt = function (n) {
-      var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+      var ctrl = !patient && typeof AbortController === 'function' ? new AbortController() : null;
       var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 15000) : null;
       var p = fetchOnce(fn, args, ctrl ? ctrl.signal : undefined);
       if (timer) p = p.finally(function () { clearTimeout(timer); });
       return p.catch(function (e) {
-        if (n > 0 && (e && (e.name === 'AbortError' || String(e).indexOf('Failed to fetch') >= 0))) {
+        if (n > 0 && mayRetry && (e && (e.name === 'AbortError' || String(e).indexOf('Failed to fetch') >= 0))) {
           return attempt(n - 1);
         }
         throw e;
@@ -62,8 +94,14 @@
     };
     return attempt(1).then(function (r) {
       if (r && r.ok) return r.value;
+      var message = (r && r.error) || 'Unknown error';
+      // 宿主没有这个通道 = 界面比宿主新（宿主代码要重启 DSH 或重新加载插件才换）。
+      // 调用方多半把这种错吞掉，用户只看到「点了没反应」，所以在这里说清楚。
+      if (String(message).indexOf('未实现的通道') >= 0) {
+        pageNotice('这个功能需要更新后的宿主代码：请重启 DSH，或在「插件」页把 Typst 关掉再打开。');
+      }
       // 裸错误文本：渲染端的 ipc() 会再剥一次 "Error invoking remote method" 前缀
-      throw new Error((r && r.error) || 'Unknown error');
+      throw new Error(message);
     });
   }
 
@@ -504,15 +542,14 @@
   // ================= window.texpileNative =================
   window.texpileNative = {
     // 必须是同步的：Texpile 在首帧之前就读它（openWorkspace.ts 的 bootOpen）
-    // 润色菜单默认整块不出现：Texpile 的 settings.refineAgents 默认是 null，而插件版唯一可用的
-    // 润色代理就是本机 DSH（宿主 agent:detect 只报 dsh:true）。这里补出厂默认值，且只在
-    // 「键不存在」时补——用户显式关掉（[]）或选了别的代理都必须原样保留（issue #26）。
+    // 「润色」入口已下线：这条通路要起一个临时 ACP 会话、跑完整轮才有结果，慢且不稳。
+    // 选中文字的改写统一走 AGENT 面板（划选 → 交给 AGENT 修改）。代理名单固定成空，
+    // 润色菜单整块不出现；用户设置里留着的旧值不动，将来要恢复只需删掉这段。
     get bootstrap() {
       var b = window.__TEXPILE_BOOTSTRAP__ || { open: null, settings: {} };
       var s = b.settings;
-      if (s && Object.prototype.hasOwnProperty.call(s, 'refineAgents')) return b;
-      var settings = Object.assign({}, s || {}, { refineAgents: ['dsh'] });
-      return Object.assign({}, b, { settings: settings });
+      if (s && Array.isArray(s.refineAgents) && s.refineAgents.length === 0) return b;
+      return Object.assign({}, b, { settings: Object.assign({}, s || {}, { refineAgents: [] }) });
     },
 
     // ---- 会话 / 设置 / 窗口 ----
@@ -603,6 +640,10 @@
     },
     fsRead: function (path) {
       return invoke('fs:read', path);
+    },
+    // 保存命令 / Ctrl+S 之后出片：让宿主把磁盘上的 PDF 重新生成一次并返回结果（自动保存不经过这里）
+    compileProject: function () {
+      return invoke('typst:compile', {});
     },
     fsWrite: function (path, content) {
       return invoke('fs:write', path, content);
@@ -1292,6 +1333,42 @@
         });
       }
     };
+  })();
+
+  // 宿主过期提示条：磁盘上的宿主代码已经更新，DSH 里跑的还是旧的（宿主代码只在加载插件时读一次）。
+  // 这时界面是新的、宿主是旧的，新入口点了会报「未实现的通道」——所以把原因和办法直接摆在最上面。
+  (function hostStaleNotice() {
+    var boot = window.__TEXPILE_BOOTSTRAP__;
+    if (!boot || !boot.hostStale) return;
+    var show = function () {
+      if (document.getElementById('typwriter-host-stale')) return;
+      var bar = document.createElement('div');
+      bar.id = 'typwriter-host-stale';
+      bar.setAttribute('role', 'alert');
+      bar.style.cssText =
+        'position:fixed;top:0;left:0;right:0;z-index:2147483646;display:flex;gap:14px;align-items:center;' +
+        'padding:8px 14px;font:13px/1.55 system-ui,sans-serif;background:#9a3412;color:#fff;' +
+        'box-shadow:0 2px 10px rgba(0,0,0,.28)';
+      var text = document.createElement('span');
+      text.style.cssText = 'flex:1 1 auto;min-width:0';
+      text.textContent =
+        '写作台的宿主代码已更新，但 DSH 还在运行旧版本，新功能暂时不可用。' +
+        '请在 DSH 的「插件」页把 Typst 写作台关掉再打开，或重启 DSH。';
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.textContent = '知道了';
+      close.style.cssText =
+        'flex:0 0 auto;cursor:pointer;border:1px solid rgba(255,255,255,.75);background:transparent;' +
+        'color:#fff;border-radius:6px;padding:2px 12px;font:inherit';
+      close.addEventListener('click', function () {
+        bar.remove();
+      });
+      bar.appendChild(text);
+      bar.appendChild(close);
+      document.body.appendChild(bar);
+    };
+    if (document.body) show();
+    else document.addEventListener('DOMContentLoaded', show);
   })();
 
   console.log('[typwriter] shim installed; bootstrap =', window.__TEXPILE_BOOTSTRAP__);
