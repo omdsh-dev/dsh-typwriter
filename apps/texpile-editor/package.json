@@ -83,7 +83,7 @@
 		"esm-env": "^1.2.2",
 		"harper.js": "^3.0.0",
 		"lib0": "^0.2.120",
-		"linebreak": "^1.1.0",
+		"linebreak": "^2.0.0",
 		"markdown-it": "^15.0.3",
 		"mathlive": "workspace:*",
 		"opentype.js": "^2.0.0",
