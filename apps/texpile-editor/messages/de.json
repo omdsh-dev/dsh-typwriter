@@ -531,6 +531,8 @@
 	"menubar_redo": "Wiederholen",
 	"menubar_find": "Suchen…",
 	"menubar_save_pdf": "Aktuelles PDF speichern",
+	"typst_compile_done": "PDF aktualisiert",
+	"typst_compile_failed": "PDF konnte nicht aktualisiert werden",
 	"menubar_menu_view": "Ansicht",
 	"menubar_interface_zoom": "Oberflächenzoom: {percent} %",
 	"menubar_zoom_in": "Vergrößern",

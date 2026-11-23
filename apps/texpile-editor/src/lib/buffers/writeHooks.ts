@@ -19,6 +19,8 @@ export type WriteHooks = {
 	/** awaited before the text goes to disk, so what the write records lands first */
 	beforeWrite?(absPath: string, content: string): Promise<void>;
 	afterWrite?(absPath: string, content: string): void;
+	/** the write was asked for by hand (the save command, Ctrl+S) rather than by the autosave delay */
+	afterSave?(absPath: string, content: string): void;
 	/** the disk's change went into the text, whole or merged with unsaved edits; `disk` is the new common text */
 	diskTaken?(absPath: string, disk: string): void;
 	/** the disk and the editor changed the same words; the file's writes wait for resolveConflict */

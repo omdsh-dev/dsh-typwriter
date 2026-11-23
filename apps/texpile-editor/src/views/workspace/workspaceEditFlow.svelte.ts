@@ -22,6 +22,7 @@ import { visualDocCache } from '$lib/workspace/visualDocCache';
 import { saveVisualPosition } from '$lib/workspace/visualPositions';
 import { editorViewStore } from '$lib/stores/editorStore';
 import { samePath } from '$lib/workspace/fileSystem';
+import { noteExplicitSave } from '$lib/languages/typst/compile/compileOnSave';
 import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 import type { EditSession } from '$lib/collab/editSession';
 import type { WorkspaceDoc } from './workspaceDoc.svelte';
@@ -133,6 +134,8 @@ export class WorkspaceEditFlow {
 				void addLocalHistory(path, content);
 				if (open(path) && !this.saver.isDirty(path)) isDirty.current = false;
 			},
+			// a save asked for by hand regenerates the Typst project's PDF; the autosave delay only writes
+			afterSave: (path) => noteExplicitSave(path),
 			diskTaken: (path, disk) => {
 				if (!open(path)) return;
 				const text = this.saver.textOf(path) ?? disk;

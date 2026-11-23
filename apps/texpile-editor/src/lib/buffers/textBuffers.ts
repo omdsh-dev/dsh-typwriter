@@ -314,6 +314,7 @@ export class TextBuffers {
 			this.disk.forget(rel);
 			this.failures.delete(rel);
 			this.hooks.afterWrite?.(abs, content);
+			if (notify) this.hooks.afterSave?.(abs, content);
 			return true;
 		} catch (e) {
 			// a write that did not land keeps the change pending and tries again on its own: a file a sync client or a

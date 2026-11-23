@@ -45,6 +45,22 @@ describe('TextBuffers writing', () => {
 		expect(afterWrite).toHaveBeenCalledWith('root/main.tex', 'a\nb!\n');
 	});
 
+	it('tells the workspace about a save asked for by hand, and not about the autosave delay', async () => {
+		const afterWrite = vi.fn();
+		const afterSave = vi.fn();
+		const { buffers, disk } = await open({ 'main.tex': 'Alpha beta.\n' }, { afterWrite, afterSave });
+		buffers.fold('main.tex', 'Alpha beta.\nGamma.\n');
+		await buffers.flushAll();
+		expect([disk['main.tex'], afterWrite.mock.calls.length, afterSave.mock.calls.length]).toEqual(['Alpha beta.\nGamma.\n', 1, 0]);
+		buffers.fold('main.tex', 'Alpha beta.\nGamma, edited.\n');
+		await buffers.save('main.tex');
+		expect([disk['main.tex'], afterWrite.mock.calls.length, afterSave.mock.calls]).toEqual([
+			'Alpha beta.\nGamma, edited.\n',
+			2,
+			[['root/main.tex', 'Alpha beta.\nGamma, edited.\n']]
+		]);
+	});
+
 	it('merges a change on disk in other words into the edit and writes the merge', async () => {
 		const { buffers, text, disk } = await open({ 'main.tex': 'Alpha beta gamma.' }, { diskChanged: async () => true });
 		buffers.fold('main.tex', 'Alpha NEW beta gamma.');

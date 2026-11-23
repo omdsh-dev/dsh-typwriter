@@ -1,8 +1,9 @@
 // RPC 派发：把渲染端 `window.texpileNative.*` 的调用映射到宿主实现。
 // 通道名与 electron/preload.ts 里的 ipcRenderer.invoke 通道一一对应，
 // 所以 shim 可以直接把 fn 名字透传过来。
-import { execFileSync, spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
+import { access } from 'node:fs/promises';
 import { delimiter, join, resolve } from 'node:path';
 import * as fsops from './fsops.js';
 import * as agentlist from './agentlist.js';
@@ -11,7 +12,7 @@ import * as wordexport from './wordexport.js';
 import * as permissions from './permissions.js';
 import { AcpHost } from './acp.js';
 import { TinymistInstaller } from './tinymist.js';
-import { TypstSaveCompiler } from './typst-save.js';
+import { TypstProjectCompiler } from './typst-compile.js';
 import { saveFileDialog } from './dialog.js';
 import { dshHome } from './state.js';
 import { preparedPreviewHtml } from './previewPage.js';
@@ -31,8 +32,9 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     return dshHome();
   };
 
-  // 保存 .typ 之后补一次编译：实时预览只在内存里，磁盘上的 PDF 不会自己更新
-  const compileOnSave = new TypstSaveCompiler({ binDir, logger, store });
+  // 保存 .typ 之后把磁盘上的 PDF 重新生成：只在显式保存（保存命令 / Ctrl+S）时由前端调用，
+  // 自动保存只写源码。实时预览只在内存里，磁盘上的 PDF 不会自己更新。
+  const typstCompiler = new TypstProjectCompiler({ binDir, logger, store });
 
   // 自带 tinymist 的安装器：插件包不再随附 bin/，所以「安装」必须真的能装（issue #22）
   const tinymist = new TinymistInstaller({
@@ -41,7 +43,7 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     logger,
     probe: () => tinymistInfo(binDir),
     forget: () => {
-      tinymistCache = undefined;
+      tinymistProbe = undefined;
     }
   });
 
@@ -166,12 +168,7 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     'fs:tree': (root) => fsops.fsTree(root),
     'fs:treeScan': (root, exts) => fsops.fsTreeScan(root, exts),
     'fs:read': (path) => fsops.fsRead(path),
-    'fs:write': async (path, content) => {
-      const r = await fsops.fsWrite(path, content);
-      // 保存即出片：防抖后跑一次 tinymist compile，让文件夹里的 PDF 跟上源码
-      compileOnSave.touch(path);
-      return r;
-    },
+    'fs:write': async (path, content) => fsops.fsWrite(path, content),
     'fs:writeBinary': (path, bytes) => fsops.fsWriteBinary(path, bytes),
     'fs:stat': (path) => fsops.fsStat(path),
     'fs:probe': (path) => fsops.fsProbe(path),
@@ -181,6 +178,13 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     'fs:search': (root, q, regex, caseSensitive) => fsops.fsSearch(root, q, regex, caseSensitive),
     'fs:realRelative': (root, rel) => fsops.fsRealRelative(root, rel),
     'fs:formatLatex': (path, text) => fsops.fsFormatLatex(path, text),
+
+    // ---- Typst 出片（保存命令 / Ctrl+S 触发；自动保存不出片） ----
+    'typst:compile': async (opts = {}) => {
+      const root = typeof opts?.root === 'string' && opts.root ? opts.root : await store.getActiveRoot();
+      if (!root) return { ok: false, error: 'no-workspace', ms: 0 };
+      return typstCompiler.compile(root, { saved: typeof opts?.path === 'string' ? opts.path : undefined });
+    },
 
     // ---- 终端（= 编译通道） ----
     'terminal:available': () => terminals.available(),
@@ -211,7 +215,7 @@ export function createDispatch({ store, terminals, lsp, acp, appDir, binDir, cle
     // 返回类型必须对齐 Texpile：probeToolchain → ToolProbe[]，distros → ToolDistro[]，
     // dirForms → 单个对象。以前这些通道返回 null，toolchainProbe.run() 会把 probes 置成
     // null，Preferences 一渲染就 TypeError——观感上就是"工具链/ tinymist 连不上"。
-    'toolchain:probe': () => probeTools(binDir),
+    'toolchain:probe': (opts) => probeTools(binDir, !!(opts && opts.refresh)),
     'toolchain:distros': () => [],
     'toolchain:dirForms': (entry) => dirForms(entry),
 
@@ -394,72 +398,88 @@ function resolveTinymist(binDir) {
   return existsSync(full) ? full : null;
 }
 
-/** tinymist --version 只跑一次：结果缓存在模块里，`source` 是 Texpile 的 TinymistInfo 契约字段 */
-let tinymistCache;
+/** tinymist --version 只跑一次：结果缓存在模块里，`source` 是 Texpile 的 TinymistInfo 契约字段。
+ *  必须是异步的：宿主与整个 DSH 共用一条事件循环，同步 spawn 会把面板正要加载的那批静态文件
+ *  全卡在后面（杀毒软件第一次扫一个大体积 exe 可能要好几秒）。 */
+let tinymistProbe;
 function tinymistInfo(binDir) {
-  if (tinymistCache !== undefined) return tinymistCache;
-  const command = resolveTinymist(binDir);
-  if (!command) {
-    tinymistCache = null;
-    return null;
-  }
-  let out = '';
-  try {
-    out = execFileSync(command, ['--version'], { encoding: 'utf8', timeout: 15000, windowsHide: true });
-  } catch {
-    /* 版本读不出来也照样能用；下面给 unknown 占位，至少形状是对的 */
-  }
-  const version =
-    /Build Git Describe:\s*v?([0-9][^\s]*)/i.exec(out)?.[1] ??
-    /^\s*tinymist\s+v?([0-9][^\s]*)/im.exec(out)?.[1] ??
-    null;
-  const typstVersion = /Typst Version:\s*v?([0-9][^\s]*)/i.exec(out)?.[1] ?? null;
-  tinymistCache = {
-    command,
-    version: version ?? 'unknown',
-    typstVersion: typstVersion ?? 'unknown',
-    // 这份 tinymist 是插件自带的（bundled），在 Texpile 的词汇里属于 managed
-    source: 'managed'
-  };
-  return tinymistCache;
+  tinymistProbe ??= (async () => {
+    const command = resolveTinymist(binDir);
+    if (!command) return null;
+    let out = '';
+    try {
+      out = await runVersion(command);
+    } catch {
+      /* 版本读不出来也照样能用；下面给 unknown 占位，至少形状是对的 */
+    }
+    const version =
+      /Build Git Describe:\s*v?([0-9][^\s]*)/i.exec(out)?.[1] ??
+      /^\s*tinymist\s+v?([0-9][^\s]*)/im.exec(out)?.[1] ??
+      null;
+    const typstVersion = /Typst Version:\s*v?([0-9][^\s]*)/i.exec(out)?.[1] ?? null;
+    return {
+      command,
+      version: version ?? 'unknown',
+      typstVersion: typstVersion ?? 'unknown',
+      // 这份 tinymist 是插件自带的（bundled），在 Texpile 的词汇里属于 managed
+      source: 'managed'
+    };
+  })();
+  return tinymistProbe;
+}
+
+function runVersion(command) {
+  return new Promise((resolve, reject) => {
+    execFile(command, ['--version'], { encoding: 'utf8', timeout: 15000, windowsHide: true }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(stdout);
+    });
+  });
 }
 
 /** PATH 目录 + 插件 bin 目录，按"先插件 bin 后 PATH"的优先级排列 */
 function searchDirs(binDir) {
   const out = [];
-  if (binDir && existsSync(binDir)) out.push(binDir);
+  if (binDir) out.push(binDir);
   for (const dir of String(process.env.PATH || process.env.Path || '').split(delimiter)) {
     if (dir) out.push(dir);
   }
   return out;
 }
 
-/** 在 PATH 附近找一个可执行文件，返回绝对路径（找不到 null） */
-function whichProgram(name, binDir) {
+const fileExists = (p) => access(p).then(() => true, () => false);
+
+/** 在 PATH 附近找一个可执行文件，返回绝对路径（找不到 null）。目录按顺序、目录内并行，不阻塞事件循环 */
+async function whichProgram(name, binDir) {
   const exts = process.platform === 'win32' ? [`.exe`, `.cmd`, `.bat`, ''] : [''];
   for (const dir of searchDirs(binDir)) {
-    for (const ext of exts) {
-      const candidate = join(dir, name + ext);
-      try {
-        if (existsSync(candidate)) return candidate;
-      } catch {
-        /* 无权限目录直接跳过 */
-      }
-    }
+    const hits = await Promise.all(exts.map((ext) => fileExists(join(dir, name + ext))));
+    const at = hits.indexOf(true);
+    if (at >= 0) return join(dir, name + exts[at]);
   }
   return null;
 }
 
-/** Preferences 里逐行显示的探测结果；tinymist 单独走 typst:resolve，这里不重复 */
+/** Preferences 里逐行显示的探测结果；tinymist 单独走 typst:resolve，这里不重复。
+ *  每次进面板都会问一遍，结果缓存十分钟；`refresh` 强制重探。 */
 const PROBE_TOOLS = ['latexmk', 'pdflatex', 'lualatex', 'xelatex', 'biber', 'bibtex', 'latexindent', 'synctex', 'git'];
+const PROBE_TTL_MS = 10 * 60_000;
+let probeCache = { key: '', at: 0, value: null };
 
-function probeTools(binDir) {
-  return PROBE_TOOLS.map((id) => {
-    const command = whichProgram(id, binDir);
-    return command
-      ? { id, found: true, command, detail: command }
-      : { id, found: false, command: id };
-  });
+async function probeTools(binDir, refresh = false) {
+  const key = String(binDir || '');
+  const cached = probeCache.key === key && probeCache.value && Date.now() - probeCache.at < PROBE_TTL_MS ? probeCache.value : null;
+  if (cached && !refresh) return cached;
+  const value = await Promise.all(
+    PROBE_TOOLS.map(async (id) => {
+      const command = await whichProgram(id, binDir);
+      return command
+        ? { id, found: true, command, detail: command }
+        : { id, found: false, command: id };
+    })
+  );
+  probeCache = { key, at: Date.now(), value };
+  return value;
 }
 
 /** toolchain:dirForms —— Texpile 用它把设置里的目录写法补成绝对/真实路径 */

@@ -531,6 +531,8 @@
 	"menubar_redo": "Refazer",
 	"menubar_find": "Localizar…",
 	"menubar_save_pdf": "Salvar o PDF atual",
+	"typst_compile_done": "PDF atualizado",
+	"typst_compile_failed": "Não foi possível atualizar o PDF",
 	"menubar_menu_view": "Exibir",
 	"menubar_interface_zoom": "Zoom da interface: {percent}%",
 	"menubar_zoom_in": "Aumentar zoom",

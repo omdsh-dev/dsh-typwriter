@@ -531,6 +531,8 @@
 	"menubar_redo": "重做",
 	"menubar_find": "查找…",
 	"menubar_save_pdf": "保存当前 PDF",
+	"typst_compile_done": "PDF 已更新",
+	"typst_compile_failed": "PDF 更新失败",
 	"menubar_menu_view": "视图",
 	"menubar_interface_zoom": "界面缩放：{percent}%",
 	"menubar_zoom_in": "放大",
