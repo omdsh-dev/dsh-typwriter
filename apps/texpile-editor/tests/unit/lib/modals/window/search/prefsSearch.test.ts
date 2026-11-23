@@ -13,7 +13,15 @@ describe('searching Preferences', () => {
 	it('finds a row by its label in the reading language', () => {
 		expect(ids('smart paste')).toContain('smart-paste');
 		overwriteGetLocale(() => 'de');
-		expect(ids('Rechtschreibung')).toContain('spellcheck');
+		expect(ids('Intelligentes Einfügen')).toContain('smart-paste');
+	});
+
+	it('offers nothing of a retired tab, in any language', () => {
+		overwriteGetLocale(() => 'de');
+		expect(ids('Rechtschreibung')).not.toContain('spellcheck');
+		overwriteGetLocale(() => 'en');
+		expect(ids('spelling')).not.toContain('spellcheck');
+		expect(ids('dictionary')).not.toContain('dictionary');
 	});
 
 	it('finds a row by a word in its note and files it under its tab', () => {

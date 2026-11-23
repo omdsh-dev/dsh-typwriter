@@ -17,6 +17,14 @@ export type PrefsTab =
 
 type TabDef = { id: PrefsTab; label: () => string; desktopOnly?: true; sections?: PrefsSectionId[] };
 
+/**
+ * Tabs Typwriter does not offer. Spelling and grammar check English prose; the dictionaries and the
+ * grammar engine are cut from the Typwriter package (scripts/prune-app.mjs), which serves Chinese
+ * academic writing. The tab's menu, page and search rows are all retired from this one list — the
+ * code stays, so restoring one is deleting its id here.
+ */
+export const RETIRED_TABS: readonly PrefsTab[] = ['proofing'];
+
 export const PREFS_TABS: TabDef[] = [
 	{ id: 'appearance', label: () => m.prefs_appearance() },
 	{ id: 'editor', label: () => m.prefs_group_editor(), sections: ['source', 'visual'] },
@@ -33,9 +41,9 @@ export const PREFS_TABS: TabDef[] = [
 	{ id: 'ai', label: () => m.prefs_group_ai(), desktopOnly: true }
 ];
 
-/** the browser guest has no toolchain, Zotero, MCP server, folder to reopen or versions of its own */
+/** a tab Typwriter has retired, or one the browser guest has no toolchain, Zotero, MCP server, folder or versions for */
 export function tabUnavailable(tab: TabDef): boolean {
-	return __WEB__ && tab.desktopOnly === true;
+	return RETIRED_TABS.includes(tab.id) || (__WEB__ && tab.desktopOnly === true);
 }
 
 export function tabLabel(id: PrefsTab): string {

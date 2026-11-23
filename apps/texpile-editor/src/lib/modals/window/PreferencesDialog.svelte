@@ -24,13 +24,15 @@
 	import PrefsSidebarTab from './search/PrefsSidebarTab.svelte';
 	import PrefsSidebarSubTab from './search/PrefsSidebarSubTab.svelte';
 	import { sectionLabel, sectionShown } from './search/prefsRows';
-	import { PREFS_TABS, tabLabel, tabUnavailable, type PrefsTab } from './search/prefsTabs';
+	import { PREFS_TABS, RETIRED_TABS, tabLabel, tabUnavailable, type PrefsTab } from './search/prefsTabs';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 	const logoSpin = new LogoSpin();
 	const navigation = new PrefsNavigation();
 
 	const available = PREFS_TABS.filter((t) => !tabUnavailable(t));
+	// a retired tab has no page to land on, so it takes no place in the sidebar either
+	const shown = PREFS_TABS.filter((t) => !RETIRED_TABS.includes(t.id));
 
 	// Opened to answer a particular question (the compile modal's "your compiler is missing"): land
 	// on that tab, then clear the request. Cleared only when it was SET, or the store write would
@@ -69,7 +71,7 @@
 			</button>
 		</div>
 		<PrefsSearchField {navigation} />
-		{#each PREFS_TABS as tab (tab.id)}
+		{#each shown as tab (tab.id)}
 			{@const current = !navigation.searching && navigation.tab === tab.id}
 			{@const sections = (tab.sections ?? []).filter((id) => sectionShown(tab.id, id))}
 			{@const expanded = navigation.expanded.includes(tab.id) && !navigation.searching}

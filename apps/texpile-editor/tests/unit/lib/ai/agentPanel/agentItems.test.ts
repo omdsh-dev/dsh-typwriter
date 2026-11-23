@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest';
-import { applyUpdate, chatBlocks, toolTitle } from '$lib/ai/agentPanel/agentItems';
+import { applyUpdate, chatBlocks, joinTextChunk, toolTitle } from '$lib/ai/agentPanel/agentItems';
 import type { ChatItem, SessionUpdate } from '$lib/ai/agentPanel/agentPanel.types';
 
 function run(updates: SessionUpdate[]): ChatItem[] {
@@ -54,4 +54,23 @@ it('places a compaction at its first update, streams its summary in, and patches
 		'agent',
 		'c2:completed:'
 	]);
+});
+
+it('joins the streamed chunks of one kind into a single chunk, keeping the first one’s other fields', () => {
+	const chunk = (sessionUpdate: string, text: string, extra: Record<string, unknown> = {}): SessionUpdate => ({
+		sessionUpdate,
+		content: { type: 'text', text },
+		...extra
+	});
+	const first = joinTextChunk(null, chunk('agent_message_chunk', 'Read', { messageId: 'm1' }));
+	expect(first).toEqual({ sessionUpdate: 'agent_message_chunk', messageId: 'm1', content: { type: 'text', text: 'Read' } });
+	const joined = joinTextChunk(first, chunk('agent_message_chunk', 'ing.', { messageId: 'm2' }));
+	expect(joined).toEqual({ sessionUpdate: 'agent_message_chunk', messageId: 'm1', content: { type: 'text', text: 'Reading.' } });
+	// a chunk of another kind is not joined onto it
+	expect(joinTextChunk(joined, chunk('agent_thought_chunk', 'Hmm'))).toEqual({
+		sessionUpdate: 'agent_thought_chunk',
+		content: { type: 'text', text: 'Hmm' }
+	});
+	// and what was joined lands as one message
+	expect(applyUpdate([], joined).map((i) => ('text' in i ? `${i.kind}:${i.text}` : i.kind))).toEqual(['agent:Reading.']);
 });

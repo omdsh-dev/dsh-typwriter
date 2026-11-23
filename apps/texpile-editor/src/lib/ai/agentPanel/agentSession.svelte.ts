@@ -3,7 +3,7 @@
 import { untrack } from 'svelte';
 import { acpBridge, type AcpBridge } from './acpBridge';
 import { nativeSessionBridge } from './nativeBridge';
-import { applyUpdate, availableCommands, configOptions, contextUsage, itemId, toolTitle } from './agentItems';
+import { applyUpdate, availableCommands, configOptions, contextUsage, itemId, joinTextChunk, toolTitle } from './agentItems';
 import { keepBefore } from './changes/agentBefore';
 import { collectTurnChanges, armTurnScope, releaseTurnScope, turnScopeArmed } from './turnScope';
 import { agentHost } from './agentHost.svelte';
@@ -25,8 +25,12 @@ import type {
 	ContextUsage,
 	PanelAgent,
 	PastedImage,
-	PermissionAsk
+	PermissionAsk,
+	SessionUpdate
 } from './agentPanel.types';
+
+/** 流式片段的合批窗口 */
+const STREAM_FLUSH_MS = 64;
 
 export class AgentSession {
 	state = $state<AgentState>('idle');
@@ -58,6 +62,34 @@ export class AgentSession {
 	private unsubscribe: (() => void) | null = null;
 	/** bumped by each start and close, so what a turn of an earlier conversation brings back goes nowhere */
 	private conversation = 0;
+	/** text chunks waiting for the next flush: one of each kind, their texts joined */
+	private stream: { agent: SessionUpdate | null; thought: SessionUpdate | null; timer: ReturnType<typeof setTimeout> | null } = {
+		agent: null,
+		thought: null,
+		timer: null
+	};
+
+	/** a streamed chunk: held until the next flush, joined onto the chunk of its kind already waiting */
+	private bufferText(u: SessionUpdate): void {
+		const key = u.sessionUpdate === 'agent_thought_chunk' ? 'thought' : 'agent';
+		this.stream[key] = joinTextChunk(this.stream[key], u);
+		this.stream.timer ??= setTimeout(() => this.flushText(), STREAM_FLUSH_MS);
+	}
+
+	/** apply the waiting chunks: the reasoning first, then the answer, as the agent gives them */
+	private flushText(): void {
+		if (this.stream.timer) clearTimeout(this.stream.timer);
+		this.stream.timer = null;
+		for (const u of [this.stream.thought, this.stream.agent]) if (u) this.items = applyUpdate(this.items, u);
+		this.stream.thought = null;
+		this.stream.agent = null;
+	}
+
+	/** a new conversation: what was still waiting belongs to the old one */
+	private discardText(): void {
+		if (this.stream.timer) clearTimeout(this.stream.timer);
+		this.stream = { agent: null, thought: null, timer: null };
+	}
 	/** while the agent replays a chat; a live turn's own message is the one this window sent */
 	private replaying = false;
 	/** a Stop pressed while the save before a turn runs, when main has no turn yet to stop */
@@ -76,6 +108,7 @@ export class AgentSession {
 		if (!bridge) return;
 		this.unsubscribe ??= bridge.onEvent((e) => this.receive(e));
 		const conversation = ++this.conversation;
+		this.discardText();
 		this.root = root;
 		this.items = [];
 		this.asks = [];
@@ -106,7 +139,10 @@ export class AgentSession {
 	}
 
 	receive(e: AcpEvent): void {
+		// every chunk applied on arrival rebuilt the list and re-rendered the whole message so far, which
+		// grows with the answer: streamed text waits a few frames and lands joined, everything else in order
 		if (e.type === 'state') {
+			this.flushText();
 			this.state = e.state;
 			this.detail = e.detail ?? '';
 			if (e.title) this.name = e.title;
@@ -122,8 +158,14 @@ export class AgentSession {
 			if (e.update.sessionUpdate === 'config_option_update') this.config = configOptions(e.update.configOptions);
 			else if (e.update.sessionUpdate === 'available_commands_update') this.commands = availableCommands(e.update.availableCommands);
 			else if (e.update.sessionUpdate === 'usage_update') this.usage = contextUsage(e.update) ?? this.usage;
-			else if (e.update.sessionUpdate !== 'user_message_chunk' || this.replaying) this.items = applyUpdate(this.items, e.update);
+			else if (!this.replaying && (e.update.sessionUpdate === 'agent_message_chunk' || e.update.sessionUpdate === 'agent_thought_chunk'))
+				this.bufferText(e.update);
+			else {
+				this.flushText();
+				this.items = applyUpdate(this.items, e.update);
+			}
 		} else if (e.type === 'permission') {
+			this.flushText();
 			this.asks = [...this.asks, { id: e.id, title: toolTitle(e.toolCall?.title ?? ''), options: e.options }];
 			// 需要用户作答：这是唯一必须抢视图的情况，否则一轮会一直等在这里
 			try {
@@ -148,6 +190,7 @@ export class AgentSession {
 		const scopedPaths = [...new Set(attached.map((a) => a.path).filter((p): p is string => !!p))];
 		if (scopedPaths.length) await armTurnScope(scopedPaths);
 		if (conversation !== this.conversation) return;
+		this.flushText();
 		this.items = [...this.items, { kind: 'user', id: itemId(), text, attached, images }];
 		if (this.stopAsked) {
 			this.state = 'ready';
@@ -176,6 +219,7 @@ export class AgentSession {
 	}
 
 	cancel(): void {
+		this.flushText();
 		this.stopAsked = true;
 		this.bridge()?.cancel();
 	}
@@ -202,6 +246,7 @@ export class AgentSession {
 		const bridge = this.bridge();
 		if (!bridge || this.state !== 'ready' || id === this.chat) return;
 		const conversation = ++this.conversation;
+		this.discardText();
 		this.items = [];
 		this.asks = [];
 		this.usage = null;
@@ -212,6 +257,7 @@ export class AgentSession {
 	}
 
 	close(): void {
+		this.discardText();
 		this.bridge()?.close();
 		this.conversation += 1;
 		this.root = null;

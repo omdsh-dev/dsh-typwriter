@@ -8,7 +8,7 @@ import { canKeepLocalHistory } from '$lib/workspace/localHistory/localHistory.sv
 import { openSpelling } from '$lib/editor/spellcheck/languages/folderLanguageMenu';
 import { LATEX_CHECK_IDS, type LatexCheckId } from '$lib/languages/latex/intellisense/checks/checkSwitches';
 import { checkName, checkNote } from '$lib/languages/latex/intellisense/checks/checkTexts';
-import type { PrefsTab } from './prefsTabs';
+import { RETIRED_TABS, type PrefsTab } from './prefsTabs';
 
 const SECTIONS = {
 	source: () => m.prefs_group_source(),
@@ -264,7 +264,15 @@ const CHECK_ROWS: PrefsRowDef[] = LATEX_CHECK_IDS.flatMap((id) => [
 
 const LATEX_AT = STATIC_ROWS.findIndex((r) => r.id === 'package-files-global');
 
-export const PREFS_ROWS: readonly PrefsRowDef[] = [...STATIC_ROWS.slice(0, LATEX_AT), ...CHECK_ROWS, ...STATIC_ROWS.slice(LATEX_AT)];
+// a retired tab's rows stay registered — its panel is still in the source — but are on no screen,
+// so search does not offer them
+function retired(r: PrefsRowDef): PrefsRowDef {
+	return RETIRED_TABS.includes(r.tab) ? { ...r, shown: () => false } : r;
+}
+
+export const PREFS_ROWS: readonly PrefsRowDef[] = [...STATIC_ROWS.slice(0, LATEX_AT), ...CHECK_ROWS, ...STATIC_ROWS.slice(LATEX_AT)].map(
+	retired
+);
 
 const BY_ID = new Map(PREFS_ROWS.map((r) => [r.id, r]));
 

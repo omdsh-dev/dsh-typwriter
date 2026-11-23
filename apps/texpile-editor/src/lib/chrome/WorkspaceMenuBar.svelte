@@ -30,6 +30,7 @@
 	import { insertItems } from '$lib/editor/visual/insert/insertItems.svelte';
 	import FormatMenu from './menubar/FormatMenu.svelte';
 	import SpellingMenu from './menubar/SpellingMenu.svelte';
+	import { RETIRED_TABS } from '$lib/modals/window/search/prefsTabs';
 	import { folderLanguageItems } from '$lib/editor/spellcheck/languages/folderLanguageMenu';
 	import type { SpellingChoice } from '$lib/editor/spellcheck/languages/spellingLanguage.svelte';
 	import TerminalMenu from './menubar/TerminalMenu.svelte';
@@ -401,7 +402,8 @@
 	{#if showAt(4, overflow)}
 		<FormatMenu index={4} select={formatMenuSelect} {structured} {dialect} {fileKind} canFormatDocument={!!onFormatDocument} />
 	{/if}
-	{#if showAt(5, overflow)}
+	<!-- the position stays taken when the menu is retired, so the menus after it keep their indices -->
+	{#if !RETIRED_TABS.includes('proofing') && showAt(5, overflow)}
 		<SpellingMenu
 			index={5}
 			select={spellcheckSelect}

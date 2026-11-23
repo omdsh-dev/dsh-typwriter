@@ -47,6 +47,13 @@ export function toolTitle(raw: string): string {
 	return `${mcp[1].charAt(0).toUpperCase()}${mcp[1].slice(1)}: ${mcp[2].replaceAll('_', ' ')}`;
 }
 
+/** a waiting streamed chunk plus the next one of its kind: one chunk with the two texts joined.
+ *  A different kind, or nothing waiting, starts a new chunk; the other fields are those of the first. */
+export function joinTextChunk(pending: SessionUpdate | null, u: SessionUpdate): SessionUpdate {
+	if (!pending || pending.sessionUpdate !== u.sessionUpdate) return { ...u, content: { type: 'text', text: text(u.content) } };
+	return { ...pending, content: { type: 'text', text: text(pending.content) + text(u.content) } };
+}
+
 function toolFields(u: SessionUpdate): Partial<ToolItem> {
 	const out: Partial<ToolItem> = {};
 	if (typeof u.title === 'string') out.title = toolTitle(u.title);
