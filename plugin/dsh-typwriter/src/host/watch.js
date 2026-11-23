@@ -6,7 +6,8 @@
 // 实现用 node:fs.watch(recursive) + 防抖合并，事件语义对齐 Texpile：
 //   'added' | 'updated' | 'deleted'  + 绝对路径，一次批量下发。
 // 只监视当前工作区根；claim 新目录/关闭工作区时切换或停止。
-import { existsSync, statSync, watch } from 'node:fs';
+import { existsSync, watch } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /** 这些目录永远不通知（与 fsops 的 SKIP_DIRS 保持一致） */
@@ -56,9 +57,9 @@ export class WorkspaceWatcher {
     this.startedAt = Date.now();
     this.seen.clear();
     try {
-      this.watcher = watch(this.root, { recursive: true, persistent: false }, (eventType, filename) => {
-        this.#onEvent(eventType, filename);
-      });
+        this.watcher = watch(this.root, { recursive: true, persistent: false }, (eventType, filename) => {
+          void this.#onEvent(eventType, filename);
+        });
       this.watcher.on('error', (e) => {
         this.#log(`[watch] watcher error root=${this.root}: ${e?.message || e}`);
       });
@@ -70,13 +71,18 @@ export class WorkspaceWatcher {
     }
   }
 
-  #onEvent(eventType, filename) {
+  async #onEvent(eventType, filename) {
     if (!filename) return;
+    const root = this.root;
+    if (!root) return;
     const rel = String(filename);
     const segs = rel.split(/[\\/]/);
     if (segs.some((s) => SKIP_SEGMENTS.has(s))) return;
-    const full = join(this.root, rel);
-    const st = statSync(full, { throwIfNoEntry: false });
+    const full = join(root, rel);
+    // 异步 stat：宿主与整个 DSH 共用一条事件循环，批量生成文件时事件一阵一阵地来
+    const st = await stat(full, { bigint: false }).catch(() => null);
+    // 等 stat 的工夫监视可能已经停了或换了目录：丢掉过期的事件
+    if (this.root !== root) return;
     let type;
     if (eventType === 'rename') {
       type = st ? 'added' : 'deleted';

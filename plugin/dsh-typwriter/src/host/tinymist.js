@@ -236,8 +236,8 @@ export class TinymistInstaller {
 		return !!targetFor();
 	}
 
-	status() {
-		const info = this.probe?.() ?? null;
+	async status() {
+		const info = (await this.probe?.()) ?? null;
 		return {
 			pinned: TINYMIST_VERSION,
 			supported: this.supported,
@@ -259,7 +259,7 @@ export class TinymistInstaller {
 
 	async install() {
 		// 已经在位就直接成功：UI 只在缺失时露按钮，但重进面板可能重复点
-		const now = this.probe?.();
+		const now = await this.probe?.();
 		if (now) return { ok: true, command: now.command, version: now.version, typstVersion: now.typstVersion };
 		if (this.running) return this.running;
 
@@ -313,7 +313,7 @@ export class TinymistInstaller {
 			}
 
 			this.forget?.();
-			const info = this.probe?.();
+			const info = await this.probe?.();
 			if (!info) {
 				return this.#finish({
 					ok: false,
@@ -404,7 +404,7 @@ export class TinymistInstaller {
 			);
 		}
 		this.forget?.();
-		const info = this.probe?.();
+		const info = await this.probe?.();
 		if (info) return { ok: false, reason: 'disk', detail: '还有别的 tinymist 在 PATH 上，移除插件自带的之后依然可用。' };
 		return { ok: true };
 	}

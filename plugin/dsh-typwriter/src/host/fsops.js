@@ -2,7 +2,8 @@
 // 返回结构对齐 apps/texpile-editor/src/lib/workspace/fileSystem.ts：
 //   TexFile = {name, path, relPath}   TreeEntry = {name, path, type:'dir'|'file', children?}
 //   SourceRead = {text, encoding}
-import { mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { Worker } from 'node:worker_threads';
 import { dirname, join, relative, sep } from 'node:path';
 
 // scanTexFiles 不传 exts 时的默认集合
@@ -131,8 +132,26 @@ export async function fsStat(path) {
 export async function fsProbe(path) {
   const st = await stat(path).catch(() => null);
   if (!st || !st.isFile()) return { size: 0, binary: true };
-  const buf = await readFile(path).catch(() => Buffer.alloc(0));
+  const buf = await readHead(path, st.size);
   return { size: st.size, binary: detectEncoding(buf) === 'binary' };
+}
+
+/** 判断"是不是二进制"只需要看文件头（detectEncoding 只看前 8KB）：大 PDF、大图片整份读进来是白读 */
+const PROBE_HEAD_BYTES = 64 * 1024;
+
+async function readHead(path, size) {
+  if (size <= PROBE_HEAD_BYTES) return readFile(path).catch(() => Buffer.alloc(0));
+  const handle = await open(path, 'r').catch(() => null);
+  if (!handle) return Buffer.alloc(0);
+  try {
+    const buf = Buffer.alloc(PROBE_HEAD_BYTES);
+    const { bytesRead } = await handle.read(buf, 0, PROBE_HEAD_BYTES, 0);
+    return buf.subarray(0, bytesRead);
+  } catch {
+    return Buffer.alloc(0);
+  } finally {
+    await handle.close().catch(() => {});
+  }
 }
 
 export async function fsRealRelative(root, rel) {
@@ -194,46 +213,38 @@ export async function fsPurgeUndo() {
   return { ok: true };
 }
 
-/** fsSearch */
+/** 一次搜索最长等多久：正则回溯没有上限，超时就放弃并如实报告 */
+const SEARCH_TIMEOUT_MS = 5000;
+
+const searchFailed = (error) => ({ results: [], truncated: false, total: 0, error });
+
+/** fsSearch：匹配在 search-worker.js 里跑，主线程不会被一个坏正则卡住 */
 export async function fsSearch(root, q, regex, caseSensitive) {
   const query = String(q ?? '');
   if (!query) return { results: [], truncated: false, total: 0 };
-  let test;
-  if (regex) {
-    try {
-      const re = new RegExp(query, caseSensitive ? '' : 'i');
-      test = (line) => re.test(line);
-    } catch {
-      return { results: [], truncated: false, error: 'invalid pattern' };
-    }
-  } else {
-    const needle = caseSensitive ? query : query.toLowerCase();
-    test = (line) => (caseSensitive ? line.includes(needle) : line.toLowerCase().includes(needle));
-  }
   const { files } = await fsScan(root);
-  const results = [];
-  let total = 0;
-  const MAX_MATCHES = 2000;
-  for (const f of files) {
-    let text;
-    try {
-      text = await readFile(f.path, 'utf8');
-    } catch {
-      continue;
-    }
-    if (text.length > 4 * 1024 * 1024) continue;
-    const lines = text.split(/\r?\n/);
-    const matches = [];
-    for (let i = 0; i < lines.length; i++) {
-      if (test(lines[i])) {
-        total++;
-        if (matches.length < 200) matches.push({ line: i + 1, text: lines[i].slice(0, 400) });
-      }
-    }
-    if (matches.length) results.push({ file: f.path, rel: f.relPath, matches });
-    if (total >= MAX_MATCHES) break;
+  let worker;
+  try {
+    worker = new Worker(new URL('./search-worker.js', import.meta.url), {
+      workerData: { files: files.map((f) => ({ path: f.path, relPath: f.relPath })), query, regex: !!regex, caseSensitive: !!caseSensitive }
+    });
+  } catch {
+    return searchFailed('search-unavailable');
   }
-  return { results, truncated: total >= MAX_MATCHES, total };
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      void worker.terminate();
+      resolve(value);
+    };
+    const timer = setTimeout(() => done(searchFailed('search-timeout')), SEARCH_TIMEOUT_MS);
+    worker.once('message', (m) => done(m && m.ok ? m.result : searchFailed('search-failed')));
+    worker.once('error', () => done(searchFailed('search-failed')));
+    worker.once('exit', () => done(searchFailed('search-failed')));
+  });
 }
 
 /** fsFormatLatex：不实现 LaTeX 格式化，原样返回，避免编辑器报错 */
