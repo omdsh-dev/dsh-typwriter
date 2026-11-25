@@ -1,6 +1,6 @@
 // where a paragraph's text may end a line, by the rules the browser breaks with: Unicode's (UAX #14, through
 // linebreak) and, for the scripts those rules hand to a dictionary, the browser's own word segmenter
-import LineBreaker from 'linebreak';
+import { LineBreaker } from 'linebreak';
 
 /**
  * required: a newline. spaces: after a run of spaces. ideographic: between characters the browser spreads apart when
