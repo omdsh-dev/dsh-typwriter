@@ -67,4 +67,4 @@ The Agent tab is a chat with an AI agent on your computer. It shows while at lea
 | Format   | Bold, Italic, Underline, Text Style, Headings, Block Quote, Format Document                                                                                                                  |
 | Spelling | Check Spelling & Grammar, Edit Dictionary…, Spelling and Grammar Settings…                                                                                                                   |
 | Terminal | Compile, Configure Compile Command…, New Terminal, Show Terminal                                                                                                                             |
-| Help     | Keyboard Shortcuts, Open Tutorial, What's New, Documentation, Join Discord, Report a Problem…, Check for Updates                                                                             |
+| Help     | Keyboard Shortcuts, Open Tutorial, What's New, Documentation, Report a Problem…, Check for Updates                                                                                           |

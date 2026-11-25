@@ -6,8 +6,7 @@ Thanks for your interest in contributing.
 
 **Drive-by pull requests will not be accepted.** Texpile is very particular about its interface, its behavior, and which features it takes on, and this rule exists so that you do not waste your time. Before writing any code, discuss the change with the current maintainer:
 
-- Open a [GitHub issue](../../issues) describing what you want to change and why, or
-- Bring it up on [Discord](https://discord.com/invite/7wanVzCBWf).
+- Open a [GitHub issue](../../issues) describing what you want to change and why.
 
 Wait for the maintainer to agree on the approach before starting. PRs that show up without prior discussion will be closed, regardless of quality.
 
