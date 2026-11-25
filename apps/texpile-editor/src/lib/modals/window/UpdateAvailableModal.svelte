@@ -8,6 +8,7 @@
 	import { updateState, updateModalOpen, startDownload, installNow } from '$lib/updates';
 	import UpdateSupportLinks from './UpdateSupportLinks.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_URL } from '$lib/projectLinks';
 
 	const u = $derived(updateState.current);
 	const pkexec = $derived(u.installMode === 'package-manager');
@@ -28,7 +29,7 @@
 	}
 	function openDownloadPage() {
 		close();
-		window.open('https://texpile.com/download', '_blank', 'noopener,noreferrer');
+		window.open(PROJECT_URL, '_blank', 'noopener,noreferrer');
 	}
 	function mb(n: number): string {
 		return (n / 1048576).toFixed(1);

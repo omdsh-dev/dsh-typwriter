@@ -32,7 +32,7 @@ export type AppSettings = {
 	completionByMode: boolean;
 	/** a command shows the arguments it takes as you type */
 	argumentHints: boolean;
-	/** check the update feed (updates.texpile.com) for a newer version on launch; downloads stay click-only. */
+	/** check for a newer version on launch; downloads stay click-only. (Typwriter's host answers "unsupported", so this never opens anything.) */
 	checkForUpdates: boolean;
 	/** let an MCP client (Claude Code, Claude Desktop) read what the editor is showing. Off by
 	 * default: connecting also needs a config snippet pasted into the client, so defaulting this on

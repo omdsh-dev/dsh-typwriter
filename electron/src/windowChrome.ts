@@ -489,7 +489,6 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ label: label(s, 'whatsNew', "What's New"), click: () => fire(win, 'help:whatsnew') },
 				{ type: 'separator' },
 				{ label: label(s, 'documentation', 'Documentation'), click: () => fire(win, 'help:docs') },
-				{ label: label(s, 'discord', 'Join Discord'), click: () => fire(win, 'help:discord') },
 				{ label: label(s, 'report', 'Report a Problem…'), click: () => fire(win, 'help:report') },
 				{ type: 'separator' },
 				// Dev Tools is a command-palette entry now (search "dev"), not a menu item: a diagnostic

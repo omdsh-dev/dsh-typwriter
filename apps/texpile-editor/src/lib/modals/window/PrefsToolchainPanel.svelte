@@ -13,6 +13,7 @@
 	import { tinymistSourceLabel } from './tinymistInstallText';
 	import PrefsRow from './rows/PrefsRow.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_DOCS_URL } from '$lib/projectLinks';
 
 	const probe = toolchainProbe;
 	const dirs = toolDirs;
@@ -30,9 +31,7 @@
 		{m.prefs_toolchain_intro()}
 		<!-- always shown, not only when something is missing: one place to go, stated up front -->
 		{m.prefs_toolchain_docs_hint()}
-		<a class="anchor" href="https://texpile.com/docs/installation" target="_blank" rel="noopener noreferrer"
-			>{m.prefs_toolchain_install_guide()}</a
-		>
+		<a class="anchor" href={PROJECT_DOCS_URL} target="_blank" rel="noopener noreferrer">{m.prefs_toolchain_install_guide()}</a>
 	</p>
 	<button class="btn preset-tonal shrink-0 text-xs" onclick={() => void probe.run()} disabled={probe.probing}>
 		{probe.probing ? m.prefs_toolchain_checking() : m.prefs_toolchain_recheck()}

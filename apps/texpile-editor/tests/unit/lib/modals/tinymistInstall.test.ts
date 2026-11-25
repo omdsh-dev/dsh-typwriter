@@ -107,7 +107,9 @@ it('words each step and each failure', () => {
 	expect(tinymistStepText({ phase: 'download', received: 0, total: 0 }, '0.15.8')).toBe('Downloading tinymist 0.15.8');
 	expect(tinymistStepPercent({ phase: 'download', received: 1, total: 4 })).toBe(25);
 	expect(tinymistStepPercent({ phase: 'extract', received: 0, total: 0 })).toBe(100);
-	expect(tinymistFailureText({ reason: 'offline', detail: 'net::ERR_INTERNET_DISCONNECTED' })).toMatch(/Could not reach dl\.texpile\.com/);
+	expect(tinymistFailureText({ reason: 'offline', detail: 'net::ERR_INTERNET_DISCONNECTED' })).toMatch(
+		/Could not download tinymist\. Check your internet connection/
+	);
 	expect(tinymistFailureText({ reason: 'checksum', detail: '' })).toMatch(/download was damaged/);
 	expect(tinymistFailureText({ reason: 'disk', detail: 'ENOSPC: no space left on device' })).toMatch(/ENOSPC/);
 });

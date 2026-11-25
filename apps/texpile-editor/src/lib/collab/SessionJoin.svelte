@@ -11,6 +11,7 @@
 	import { settings, updateSettings, DEFAULT_COLLAB_RELAY_URL } from '$lib/settings';
 	import { userData, updateUserData } from '$lib/storage/userData';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_URL } from '$lib/projectLinks';
 	import { RotateCcw, ShieldCheck, ChevronDown, ExternalLink } from '@lucide/svelte';
 	import Modal from '$lib/modals/Modal.svelte';
 	import ModalActions from '$lib/modals/ModalActions.svelte';
@@ -257,7 +258,7 @@
 		<ModalActions
 			buttons={[
 				{ label: m.session_continue_browser(), onclick: continueInBrowser, class: 'preset-tonal' },
-				{ label: m.session_download(), role: 'primary', href: 'https://texpile.com/download' }
+				{ label: m.session_download(), role: 'primary', href: PROJECT_URL }
 			]}
 		/>
 	</Modal>

@@ -39,6 +39,7 @@
 	import { reportProblemUrl } from './menubar/reportProblemUrl';
 	import ImagePickerInput from './menubar/ImagePickerInput.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_DOCS_URL } from '$lib/projectLinks';
 
 	type Props = {
 		disabled?: boolean;
@@ -169,8 +170,7 @@
 	function helpSelect(value: string) {
 		if (value === 'shortcuts') shortcutsOpen.current = true;
 		else if (value === 'whatsnew') whatsNewOpen.current = true;
-		else if (value === 'docs') window.open('https://texpile.com/docs', '_blank', 'noopener,noreferrer');
-		else if (value === 'discord') window.open('https://discord.gg/7wanVzCBWf', '_blank', 'noopener,noreferrer');
+		else if (value === 'docs') window.open(PROJECT_DOCS_URL, '_blank', 'noopener,noreferrer');
 		else if (value === 'report') window.open(reportProblemUrl(__APP_VERSION__), '_blank', 'noopener,noreferrer');
 		else if (value === 'updates') void checkUpdates();
 	}

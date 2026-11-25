@@ -4,6 +4,7 @@
 	import { activeFilePath } from '$lib/workspace/workspaceStore';
 	import { openWorkspaceForFile } from '$lib/workspace/openWorkspace';
 	import type { AgentUnavailable } from '../../agentAvailability';
+	import { PROJECT_URL } from '$lib/projectLinks';
 
 	type Props = { reason: AgentUnavailable };
 	const props: Props = $props();
@@ -28,7 +29,7 @@
 	<p class="text-sm font-semibold">{title}</p>
 	<p class="text-muted max-w-md text-xs leading-relaxed">{note}</p>
 	{#if props.reason === 'desktop'}
-		<a class="btn btn-sm preset-filled-primary-500 mt-2" href="https://texpile.com/download" target="_blank" rel="noopener noreferrer"
+		<a class="btn btn-sm preset-filled-primary-500 mt-2" href={PROJECT_URL} target="_blank" rel="noopener noreferrer"
 			>{m.session_download()}</a
 		>
 	{:else if props.reason === 'folder' && activeFilePath.current}

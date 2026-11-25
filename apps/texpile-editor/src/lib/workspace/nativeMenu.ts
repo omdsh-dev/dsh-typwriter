@@ -181,7 +181,6 @@ function labels(tool: 'latexindent' | 'typstyle'): Record<string, string> {
 		shortcuts: m.menubar_keyboard_shortcuts(),
 		whatsNew: m.whatsnew_menu_label(),
 		documentation: m.menubar_documentation(),
-		discord: m.menubar_join_discord(),
 		report: m.menubar_report_problem(),
 		updates: m.menubar_check_for_updates(),
 		// Roles carry a label of Electron's own, hardcoded English in a table inside Electron, and

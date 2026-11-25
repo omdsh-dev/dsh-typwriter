@@ -19,6 +19,7 @@
 	import type { GitStatusEntry, GitLogEntry, GitFileChange, GitOperation } from '$lib/workspace/scm/git';
 	import { combo } from '$lib/chrome/shortcutText';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_DOCS_URL } from '$lib/projectLinks';
 
 	type Props = {
 		root: string;
@@ -189,11 +190,8 @@
 		<PackageX class="text-faint size-8" />
 		<p class="text-muted text-sm @max-[11rem]:text-xs">{m.vcs_git_missing()}</p>
 		<!-- the app installs nothing: the page says how, for each system -->
-		<a
-			class="anchor text-sm @max-[11rem]:text-xs"
-			href="https://texpile.com/docs/installation/git"
-			target="_blank"
-			rel="noopener noreferrer">{m.vcs_git_install()}</a
+		<a class="anchor text-sm @max-[11rem]:text-xs" href={PROJECT_DOCS_URL} target="_blank" rel="noopener noreferrer"
+			>{m.vcs_git_install()}</a
 		>
 		<button
 			class="btn btn-xs preset-outlined-surface-200-800 hover:preset-tonal w-full gap-1.5 whitespace-normal"

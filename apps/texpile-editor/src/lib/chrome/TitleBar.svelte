@@ -24,6 +24,7 @@
 	import { titleBarLayout } from './titleBarLayout.svelte';
 	import iconUrl from '$branding/Logo-icon.svg';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_URL } from '$lib/projectLinks';
 
 	let {
 		menus,
@@ -183,7 +184,7 @@
 			{#if __WEB__}
 				<a
 					class="app-no-drag text-muted hover:text-surface-950-50 hover:bg-surface-200-800 rounded-base mr-1 flex items-center gap-1.5 self-center px-2 py-1 text-xs whitespace-nowrap"
-					href="https://texpile.com/download"
+					href={PROJECT_URL}
 					target="_blank"
 					rel="noopener noreferrer"
 					use:tip={m.web_get_desktop_note()}

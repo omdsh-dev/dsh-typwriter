@@ -1,4 +1,5 @@
 import { joinPath, relativeInside, samePath } from '$lib/workspace/fileSystem';
+import { PROJECT_DOCS_URL } from '$lib/projectLinks';
 import type { SnippetProblem } from './snippetTypes';
 
 export type SnippetFileList = {
@@ -34,5 +35,8 @@ export function packageFilePath(layer: 'project' | 'global', name: string, root:
 }
 
 export function snippetDocsUrl(kind: 'snippets' | 'package'): string {
-	return `https://texpile.com/docs/${kind === 'package' ? 'package-files' : 'snippets'}`;
+	// the project's README is the one page this fork documents itself on, and it has no page per
+	// kind yet; `kind` stays so callers need not change when it does
+	void kind;
+	return PROJECT_DOCS_URL;
 }

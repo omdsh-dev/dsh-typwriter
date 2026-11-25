@@ -34,7 +34,6 @@
 				{/if}
 				<Menu.Separator class={separatorClass} />
 				<Menu.Item value="docs" class={menuBarItemClass}><Menu.ItemText>{m.menubar_documentation()}</Menu.ItemText></Menu.Item>
-				<Menu.Item value="discord" class={menuBarItemClass}><Menu.ItemText>{m.menubar_join_discord()}</Menu.ItemText></Menu.Item>
 				<Menu.Item value="report" class={menuBarItemClass}><Menu.ItemText>{m.menubar_report_problem()}</Menu.ItemText></Menu.Item>
 				<!-- a web page updates by reloading; there is no installer to offer -->
 				{#if !__WEB__}

@@ -16,8 +16,9 @@
 	import type { DialogButton } from '$lib/modals/dialogButtons';
 	import { tinymistInstaller } from '../tinymistInstall.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { PROJECT_DOCS_URL } from '$lib/projectLinks';
 
-	const INSTALL_GUIDE = 'https://texpile.com/docs/installation';
+	const INSTALL_GUIDE = PROJECT_DOCS_URL;
 
 	const program = $derived(askedProgram.current);
 	const family = $derived(program ? familyOf(program) : null);

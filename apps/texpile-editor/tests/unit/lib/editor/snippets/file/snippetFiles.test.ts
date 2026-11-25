@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { problemsIn, snippetFileAt, type SnippetFileList } from '$lib/editor/snippets/file/snippetFiles';
+import { problemsIn, snippetDocsUrl, snippetFileAt, type SnippetFileList } from '$lib/editor/snippets/file/snippetFiles';
 
 const files: SnippetFileList = { global: '/data/snippets.json', globalPackages: '/data/packages', packages: { project: [], global: [] } };
 
@@ -16,4 +16,9 @@ it('tells the snippet and package files apart, and finds the problems in each', 
 	];
 	expect(problemsIn({ kind: 'snippets', layer: 'project' }, problems).map((p) => p.reason)).toEqual(['x']);
 	expect(problemsIn({ kind: 'package', layer: 'project', name: 'fixme' }, problems).map((p) => p.reason)).toEqual(['y']);
+});
+
+it('points the help links of both kinds at this project, not at upstream', () => {
+	expect(snippetDocsUrl('snippets')).toBe('https://github.com/omdsh-dev/dsh-typwriter#readme');
+	expect(snippetDocsUrl('package')).toBe('https://github.com/omdsh-dev/dsh-typwriter#readme');
 });
