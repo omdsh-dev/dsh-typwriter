@@ -1522,6 +1522,8 @@
 	"parfmt_reset": "恢复默认",
 	"parfmt_cannot": "这里不能设置段落格式。",
 	"parfmt_not_a_length": "这不是 Typst 的长度：请写数字加单位，例如 2em 或 8pt。",
+	"figplace_label": "固定在此处",
+	"figplace_hint": "打开后图片留在书写的位置，不随排版自动浮动；关闭则由 Typst 自动选择最合适的位置。",
 	"ttable_row_height_aria": "第 {index} 行高度",
 	"ttable_row_height_placeholder": "自动",
 	"tablewrap_row_rules_hint_typst": "（例如 table.hline(stroke: 1pt)）",

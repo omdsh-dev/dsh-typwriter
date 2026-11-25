@@ -1522,6 +1522,8 @@
 	"parfmt_reset": "Auf Standard zurücksetzen",
 	"parfmt_cannot": "Hier kann keine Absatzformatierung gesetzt werden.",
 	"parfmt_not_a_length": "Das ist keine typst-Länge: eine Zahl mit Einheit, etwa 2em oder 8pt.",
+	"figplace_label": "An Ort und Stelle lassen",
+	"figplace_hint": "Ein bleibt die Abbildung dort stehen, wo sie geschrieben ist, statt dorthin zu treiben, wo sie passt. Aus setzt typst sie dahin, wo sie am besten passt.",
 	"ttable_row_height_aria": "Höhe von Zeile {index}",
 	"ttable_row_height_placeholder": "Automatisch",
 	"tablewrap_row_rules_hint_typst": "(zum Beispiel table.hline(stroke: 1pt))",

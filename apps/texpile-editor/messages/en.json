@@ -1522,6 +1522,8 @@
 	"parfmt_reset": "Reset to default",
 	"parfmt_cannot": "Paragraph formatting cannot be set here.",
 	"parfmt_not_a_length": "That is not a typst length: write a number and a unit, such as 2em or 8pt.",
+	"figplace_label": "Keep in place",
+	"figplace_hint": "On, the figure stays where it is written instead of floating to where it fits. Off, typst places it where it fits best.",
 	"ttable_row_height_aria": "Height of row {index}",
 	"ttable_row_height_placeholder": "Auto",
 	"tablewrap_row_rules_hint_typst": "(for example table.hline(stroke: 1pt))",

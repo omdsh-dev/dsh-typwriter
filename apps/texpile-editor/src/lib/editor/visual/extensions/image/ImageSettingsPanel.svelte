@@ -11,6 +11,9 @@
 	import { labelTaken } from '$lib/editor/visual/labelTaken';
 	import { announceLabelRenamed, repointRefs } from '$lib/editor/visual/repointRefs';
 	import { templateFeaturesStore } from '$lib/stores/editorStore';
+	import TypstFigurePlacement from '$lib/languages/typst/visual/panel/TypstFigurePlacement.svelte';
+	import { figurePlacement, withPlacement } from '$lib/languages/typst/visual/serialize/figurePlacement';
+	import { isCallArgs } from '$lib/languages/typst/visual/serialize/elements/callSource';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
@@ -228,6 +231,16 @@
 			<span class="toggle-thumb"></span>
 		</button>
 	</div>
+
+	{#if dialect === 'typst'}
+		<TypstFigurePlacement
+			placement={figurePlacement(node.attrs.typFigure)}
+			set={(placement) => {
+				const args = node.attrs.typFigure;
+				if (isCallArgs(args)) updateAttrs({ typFigure: withPlacement(args, placement) });
+			}}
+		/>
+	{/if}
 
 	{#if latexControls}
 		<div class="settings-row flex items-center justify-between">

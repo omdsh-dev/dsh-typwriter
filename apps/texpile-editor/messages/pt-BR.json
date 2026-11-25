@@ -1517,6 +1517,8 @@
 	"parfmt_reset": "Voltar ao padrão",
 	"parfmt_cannot": "A formatação de parágrafo não pode ser definida aqui.",
 	"parfmt_not_a_length": "Isso não é um comprimento do Typst: escreva um número com unidade, como 2em ou 8pt.",
+	"figplace_label": "Manter no lugar",
+	"figplace_hint": "Ligado, a figura fica onde foi escrita em vez de flutuar para onde cabe. Desligado, o Typst a coloca onde melhor cabe.",
 	"ttable_row_height_aria": "Altura da linha {index}",
 	"ttable_row_height_placeholder": "Automática",
 	"tablewrap_row_rules_hint_typst": "(por exemplo table.hline(stroke: 1pt))",
