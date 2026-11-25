@@ -138,7 +138,12 @@ export default defineConfig(({ mode }) => ({
 			// modules by default and only this plugin can resolve them, and the web workers are
 			// bundled without it (worker.plugins below): their build fails on the first import of
 			// $lib/paraglide/messages. Nothing runs that build in CI, so it would fail on release.
-			outputStructure: 'message-modules'
+			outputStructure: 'message-modules',
+			// all of them in ONE file. One file per message (the default) is 6400 modules for the
+			// test runner to resolve, and made the suite half as fast again; the bundle is the same
+			// size either way, because the first screen already needs nearly every message. Far
+			// above the message count on purpose. Keep in step with the sync script in package.json.
+			messageModuleSize: 10_000
 		}),
 		// the spelling dictionaries for languages other than English
 		...(mode === 'test' ? [] : [spellDictionaries(__dirname)]),
