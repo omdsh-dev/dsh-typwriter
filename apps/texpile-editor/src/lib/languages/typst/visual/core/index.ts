@@ -11,7 +11,7 @@ export type {
 } from './plugin/typstPlugin';
 export * from './document';
 export type { BlockInsertItem, InsertItem } from '$lib/editor/visual/insert/insertItem';
-export { typGridNode, typTableNode } from '../typstTableNodes';
+export { typGridNode, typSubfiguresNode, typTableNode } from '../typstTableNodes';
 
 export { faceElement, sourceHint, tippedFace, type ChipFace } from '$lib/editor/visual/extensions/drawnChips/chipFace';
 export type { ChipSettingsProps } from '$lib/editor/visual/extensions/drawnChips/chipPanel.svelte';

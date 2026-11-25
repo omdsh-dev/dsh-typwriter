@@ -3154,6 +3154,7 @@
 	"typ_layout_right": "Direita",
 	"typ_layout_quote_block": "Separada como bloco",
 	"typ_layout_title_grid": "Grade",
+	"blockmenu_subfigures": "Imagens lado a lado",
 	"typ_layout_add_cell": "Adicionar célula",
 	"typ_layout_remove_cell": "Remover a última célula",
 	"drawn_chip_typst_lorem_title": "Texto de exemplo",

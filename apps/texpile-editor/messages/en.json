@@ -3165,6 +3165,7 @@
 	"typ_layout_right": "Right",
 	"typ_layout_quote_block": "Set apart as a block",
 	"typ_layout_title_grid": "Grid",
+	"blockmenu_subfigures": "Images side by side",
 	"typ_layout_add_cell": "Add cell",
 	"typ_layout_remove_cell": "Remove last cell",
 	"drawn_chip_typst_lorem_title": "Placeholder text",

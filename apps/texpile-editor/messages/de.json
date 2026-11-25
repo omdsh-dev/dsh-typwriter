@@ -3165,6 +3165,7 @@
 	"typ_layout_right": "Rechts",
 	"typ_layout_quote_block": "Als Block abgesetzt",
 	"typ_layout_title_grid": "Raster",
+	"blockmenu_subfigures": "Bilder nebeneinander",
 	"typ_layout_add_cell": "Zelle hinzufügen",
 	"typ_layout_remove_cell": "Letzte Zelle entfernen",
 	"drawn_chip_typst_lorem_title": "Platzhaltertext",

@@ -1,5 +1,5 @@
-import { Columns2 } from '@lucide/svelte';
-import { typGridNode, type BlockInsertItem } from '$lib/languages/typst/visual/core';
+import { Columns2, Images } from '@lucide/svelte';
+import { typGridNode, typSubfiguresNode, type BlockInsertItem } from '$lib/languages/typst/visual/core';
 import { m } from '$lib/paraglide/messages';
 
 export function gridInserts(): BlockInsertItem[] {
@@ -13,6 +13,17 @@ export function gridInserts(): BlockInsertItem[] {
 			style: false,
 			select: 'in',
 			make: (s) => typGridNode(s)
+		},
+		{
+			id: 'subfigures',
+			label: m.blockmenu_subfigures(),
+			icon: Images,
+			category: 'common',
+			shape: 'block',
+			style: false,
+			// the caret lands in the first cell, where the first image goes
+			select: 'in',
+			make: (s) => typSubfiguresNode(s)
 		}
 	];
 }

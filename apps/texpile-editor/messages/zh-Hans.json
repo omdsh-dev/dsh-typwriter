@@ -3165,6 +3165,7 @@
 	"typ_layout_right": "右",
 	"typ_layout_quote_block": "单独成块",
 	"typ_layout_title_grid": "网格",
+	"blockmenu_subfigures": "并排子图",
 	"typ_layout_add_cell": "添加单元格",
 	"typ_layout_remove_cell": "删除最后一个单元格",
 	"drawn_chip_typst_lorem_title": "占位文本",

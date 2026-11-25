@@ -31,3 +31,22 @@ export function typGridNode(schema: Schema, count = 2): PMNode {
 	const cells = Array.from({ length: count }, () => schema.nodes.typ_grid_cell.create(null, schema.nodes.paragraph.create()));
 	return schema.nodes.typ_grid.create({ args: `columns: ${count}, ` }, cells);
 }
+
+/**
+ * A figure of `count` images side by side, each in a cell of a grid, under one caption: the frame
+ * of a set of sub-figures. The cells start empty; an image put into one is a sub-figure of its own
+ * once it is given a caption.
+ */
+export function typSubfiguresNode(schema: Schema, count = 2): PMNode {
+	const attrs = {
+		code: false,
+		// the figure's arguments as a figure with a body and nothing else has them
+		typFigure: { items: [{ gap: '', role: 'body', text: '' }], tail: '' },
+		label: null,
+		labelGap: null,
+		bodyLead: null,
+		bodyTrail: null,
+		typIndent: null
+	};
+	return schema.nodes.typ_figure.create(attrs, [typGridNode(schema, count), schema.nodes.typ_figure_caption.create()]);
+}

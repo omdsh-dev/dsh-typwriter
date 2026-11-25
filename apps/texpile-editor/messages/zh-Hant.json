@@ -3165,6 +3165,7 @@
 	"typ_layout_right": "右",
 	"typ_layout_quote_block": "單獨成區塊",
 	"typ_layout_title_grid": "網格",
+	"blockmenu_subfigures": "並排子圖",
 	"typ_layout_add_cell": "新增儲存格",
 	"typ_layout_remove_cell": "移除最後一個儲存格",
 	"drawn_chip_typst_lorem_title": "預留文字",
