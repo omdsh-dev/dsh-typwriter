@@ -3,6 +3,7 @@ import { tableDocument } from './document';
 import { tableFace } from './tableFace';
 import { tableKeys } from './tableKeys';
 import { typstHeaderRows } from './typstHeaderRows';
+import { typstTableLook } from './tableLook';
 import { tableInserts } from './tableInsert';
 
 export const table: TypstPlugin = {
@@ -15,6 +16,7 @@ export const table: TypstPlugin = {
 	face: (core) => tableFace(core.source, core),
 	document: tableDocument,
 	views: () => ({ table_wrapper: (node, view, getPos) => typstTableWrapperView(node, view, getPos as () => number) }),
-	editorPlugins: { atStart: tableKeys, afterTableEditing: () => [typstHeaderRows] },
+	// the header rule runs first: the look reads the cells as header or body once that is settled
+	editorPlugins: { atStart: tableKeys, afterTableEditing: () => [typstHeaderRows, typstTableLook] },
 	insert: tableInserts
 };

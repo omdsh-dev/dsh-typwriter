@@ -1,0 +1,16 @@
+/* The editable Typst table, sized as its source says.
+ *
+ * App CSS gives every editor table `width: 100%`. That is right for a table whose columns are
+ * shares of the line, and wrong for one whose columns are all `auto`: typst sizes that one to its
+ * content, and it is three fingers wide in the PDF. */
+.TexpileEditor .tableWrapper.typst-table-auto > table {
+	width: auto;
+	min-width: 0;
+}
+
+/* A table narrower than the line sits where typst puts it. Inside a figure that is the middle: a
+   figure centres what it shows. Alone on the line it stays at the start, and these margins are 0. */
+.ProseMirror .typst-table-figure > .tableWrapper > table {
+	margin-left: auto;
+	margin-right: auto;
+}

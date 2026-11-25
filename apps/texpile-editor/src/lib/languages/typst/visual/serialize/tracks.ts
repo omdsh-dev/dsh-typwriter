@@ -9,7 +9,7 @@
 /** absolute typst lengths -> CSS px */
 const LENGTH_PX: Record<string, number> = { pt: 96 / 72, mm: 96 / 25.4, cm: 96 / 2.54, in: 96 };
 
-export type Track = { kind: 'auto' } | { kind: 'fr'; value: number } | { kind: 'abs'; px: number };
+export type Track = { kind: 'auto' } | { kind: 'fr'; value: number } | { kind: 'abs'; px: number } | { kind: 'pct'; value: number };
 
 /** one track's text -> its meaning; unrecognised forms are treated as auto. */
 export function parseTrack(text: string): Track {
@@ -18,6 +18,8 @@ export function parseTrack(text: string): Track {
 	if (fr) return { kind: 'fr', value: parseFloat(fr[1]) };
 	const abs = /^([0-9]*\.?[0-9]+)(pt|mm|cm|in)$/.exec(t);
 	if (abs) return { kind: 'abs', px: Math.round(parseFloat(abs[1]) * LENGTH_PX[abs[2]]) };
+	const pct = /^([0-9]*\.?[0-9]+)%$/.exec(t);
+	if (pct) return { kind: 'pct', value: parseFloat(pct[1]) };
 	return { kind: 'auto' };
 }
 
@@ -39,19 +41,38 @@ export function parseTracks(colspec: unknown, cols: number): Track[] | null {
 }
 
 /**
- * Distribute `total` px across tracks: absolute tracks take their own width, `fr` tracks share what
- * is left in proportion, and `auto` tracks are left null for the browser to size.
+ * Distribute the `available` px of the table's container across tracks: absolute tracks take their
+ * own width, percentage tracks their share of the container, `fr` tracks what is left in
+ * proportion, and `auto` tracks are left null for the browser to size.
  *
- * Rounding residue lands on the last fr track so the widths sum to EXACTLY `total`. That is not
- * cosmetic: prosemirror-tables pins a fully-sized table to the sum of its columns, so a few pixels
- * over the container is the difference between a table that fits and one with a scrollbar.
+ * A list that is all `fr` and percentage adds up to EXACTLY the container's width, with the
+ * rounding residue on the last such track. That is not cosmetic: prosemirror-tables pins a fully
+ * sized table to the sum of its columns, so a few pixels over the container is the difference
+ * between a table that fits and one with a scrollbar.
  */
-export function distribute(tracks: Track[], total: number): (number | null)[] {
-	const out: (number | null)[] = tracks.map((t) => (t.kind === 'abs' ? t.px : null));
+export function distribute(tracks: Track[], available: number): (number | null)[] {
+	const out: (number | null)[] = tracks.map((t) =>
+		t.kind === 'abs' ? t.px : t.kind === 'pct' ? Math.round((available * t.value) / 100) : null
+	);
 	const frIdx = tracks.map((t, i) => (t.kind === 'fr' ? i : -1)).filter((i) => i >= 0);
-	if (frIdx.length === 0) return out;
-	const absTotal = out.reduce<number>((a, w) => a + (w ?? 0), 0);
-	const share = Math.max(0, total - absTotal);
+	if (frIdx.length === 0) {
+		// percentages alone: the last of them absorbs the rounding, so the table is exactly as wide
+		// as the tracks say and no narrower or wider by a pixel
+		let last = -1;
+		for (let i = 0; i < tracks.length; i++) if (tracks[i].kind === 'pct') last = i;
+		if (last < 0) return out;
+		let fixed = 0;
+		let pct = 0;
+		for (const t of tracks) {
+			if (t.kind === 'abs') fixed += t.px;
+			else if (t.kind === 'pct') pct += t.value;
+		}
+		const rest = out.reduce<number>((a, w) => a + (w ?? 0), 0) - (out[last] ?? 0);
+		out[last] = Math.max(0, fixed + Math.round((available * pct) / 100) - rest);
+		return out;
+	}
+	const fixed = out.reduce<number>((a, w) => a + (w ?? 0), 0);
+	const share = Math.max(0, available - fixed);
 	const units = frIdx.reduce((a, i) => a + (tracks[i] as { value: number }).value, 0);
 	if (!(units > 0) || share === 0) return out;
 	let used = 0;
@@ -65,6 +86,34 @@ export function distribute(tracks: Track[], total: number): (number | null)[] {
 		used += w;
 	});
 	return out;
+}
+
+/**
+ * How wide a track list makes the table inside `available` px, or null when content decides: an
+ * `auto` track is as wide as what it holds. This is what separates a table that fills the text
+ * block from one that says `columns: (30%, 30%)` and takes three fifths of it.
+ */
+export function tracksWidth(tracks: Track[], available: number): number | null {
+	const widths = distribute(tracks, available);
+	return widths.some((w) => w == null) ? null : widths.reduce<number>((a, w) => a + (w ?? 0), 0);
+}
+
+/** the share of the container a list of percentage tracks and nothing else covers, else null */
+export function pctOnlyRatio(tracks: Track[]): number | null {
+	return tracks.length > 0 && tracks.every((t) => t.kind === 'pct')
+		? tracks.reduce((a, t) => a + (t.kind === 'pct' ? t.value : 0), 0) / 100
+		: null;
+}
+
+/** measured px widths -> a percentage track list that keeps their proportions and covers `ratio`
+ * of the container; columns with no width stay `auto`. For a table narrower than the text block:
+ * `fr` would stretch it back out. */
+export function toPercentTracks(widths: (number | null)[], ratio: number): string | null {
+	const sized = widths.filter((w): w is number => w != null);
+	const total = sized.reduce((a, b) => a + b, 0);
+	if (!(total > 0) || !(ratio > 0) || ratio > 1) return null;
+	const out = widths.map((w) => (w == null ? 'auto' : `${Number((((w / total) * ratio * 1000) / 10).toFixed(1))}%`));
+	return `(${out.join(', ')})`;
 }
 
 /** Columns snap to quarter-fr steps rather than landing wherever the mouse stopped. A drag is a

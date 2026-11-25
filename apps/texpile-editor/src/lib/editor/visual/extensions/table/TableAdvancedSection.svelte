@@ -101,34 +101,33 @@
 		{/if}
 	</label>
 
-	<!-- per-row rules (\hline, \toprule, ...); empty = no rule before that row -->
-	{#if dialect === 'latex'}
-		<div class="space-y-1.5">
-			<span class="text-surface-900-100 block text-sm font-medium">
-				{m.tablewrap_row_rules_heading()} <span class="text-muted text-xs">{m.tablewrap_row_rules_hint()}</span>
-			</span>
-			{#each rowRules as rule, i (i)}
-				<div class="flex items-center gap-2">
-					<span class="text-muted w-24 shrink-0 text-xs">{m.tablewrap_before_row({ index: i + 1 })}</span>
-					<input
-						type="text"
-						class="input flex-1 text-xs"
-						value={rule}
-						placeholder={m.tablewrap_rule_placeholder()}
-						onchange={(e) => setRowRule(i, (e.currentTarget as HTMLInputElement).value)}
-					/>
-				</div>
-			{/each}
+	<!-- per-row rules (\hline, \toprule, ... in LaTeX; table.hline(..) in typst); empty = no rule before that row -->
+	<div class="space-y-1.5">
+		<span class="text-surface-900-100 block text-sm font-medium">
+			{m.tablewrap_row_rules_heading()}
+			<span class="text-muted text-xs">{dialect === 'typst' ? m.tablewrap_row_rules_hint_typst() : m.tablewrap_row_rules_hint()}</span>
+		</span>
+		{#each rowRules as rule, i (i)}
 			<div class="flex items-center gap-2">
-				<span class="text-muted w-24 shrink-0 text-xs">{m.tablewrap_after_last_row()}</span>
+				<span class="text-muted w-24 shrink-0 text-xs">{m.tablewrap_before_row({ index: i + 1 })}</span>
 				<input
 					type="text"
 					class="input flex-1 text-xs"
-					value={bottomRule}
+					value={rule}
 					placeholder={m.tablewrap_rule_placeholder()}
-					onchange={(e) => setBottomRule((e.currentTarget as HTMLInputElement).value)}
+					onchange={(e) => setRowRule(i, (e.currentTarget as HTMLInputElement).value)}
 				/>
 			</div>
+		{/each}
+		<div class="flex items-center gap-2">
+			<span class="text-muted w-24 shrink-0 text-xs">{m.tablewrap_after_last_row()}</span>
+			<input
+				type="text"
+				class="input flex-1 text-xs"
+				value={bottomRule}
+				placeholder={m.tablewrap_rule_placeholder()}
+				onchange={(e) => setBottomRule((e.currentTarget as HTMLInputElement).value)}
+			/>
 		</div>
-	{/if}
+	</div>
 </div>

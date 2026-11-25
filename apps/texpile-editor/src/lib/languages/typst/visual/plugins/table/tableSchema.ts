@@ -9,7 +9,9 @@ function widen(spec: NodeSpec, attrs: NodeSpec['attrs']): NodeSpec {
 export function tableSchema({ nodes, marks }: TypstSchemaSpec): TypstSchemaSpec {
 	const widened: Record<string, NodeSpec['attrs']> = {
 		table: { typAlign: { default: null }, typArgs: { default: [] }, typBottomRules: { default: [] } },
-		table_row: { typRules: { default: [] } },
+		// typRowHeight / typRowArgs: the row was a `table.row(height: 2em, ..)`, kept so the height
+		// shows in the editor and comes back on save
+		table_row: { typRules: { default: [] }, typRowHeight: { default: null }, typRowArgs: { default: [] } },
 		// typCode: the cell was a bare expression (`text("0")`), written back without brackets while it is that one chip still;
 		// typCellArgs: a table.cell's named arguments other than its spans, verbatim
 		table_cell: { typCode: { default: false }, typCellArgs: { default: [] } },

@@ -37,15 +37,30 @@ function getTableNode(tableWrapperNode: Node): Node | null {
 	return tableNode;
 }
 
-// the rule before each row (table_row.topRules, e.g. "\hline") plus the rule after the last row
-// (table.bottomRules); these drive the editable "Row rules" advanced settings
-function collectRowRules(tableWrapperNode: Node): { rowRules: string[]; bottomRule: string } {
+function isHline(rule: unknown): rule is string {
+	return typeof rule === 'string' && /^\s*table\.hline\b/.test(rule);
+}
+
+/** the one rule a Typst row's list of rules shows as: its table.hline; comments ride unseen */
+function hlineOf(rules: unknown): string {
+	return Array.isArray(rules) ? (rules.filter(isHline)[0] ?? '') : '';
+}
+
+/** a Typst rule list with another table.hline at its head: the comments stay, a line replaces a line */
+function withHline(rules: unknown, rule: string): string[] {
+	const kept = Array.isArray(rules) ? rules.filter((r) => typeof r === 'string' && !isHline(r)) : [];
+	return rule.trim() ? [rule.trim(), ...kept] : kept;
+}
+
+// the rule before each row (LaTeX: table_row.topRules, e.g. "\hline"; Typst: the table.hline among
+// table_row.typRules) plus the rule after the last row; these drive the editable "Row rules" settings
+function collectRowRules(tableWrapperNode: Node, dialect: TableDialect): { rowRules: string[]; bottomRule: string } {
 	const tableNode = getTableNode(tableWrapperNode);
 	const rowRules: string[] = [];
 	let bottomRule = '';
 	if (tableNode) {
-		tableNode.forEach((row) => rowRules.push(String(row.attrs.topRules ?? '')));
-		bottomRule = String(tableNode.attrs.bottomRules ?? '');
+		tableNode.forEach((row) => rowRules.push(dialect === 'typst' ? hlineOf(row.attrs.typRules) : String(row.attrs.topRules ?? '')));
+		bottomRule = dialect === 'typst' ? hlineOf(tableNode.attrs.typBottomRules) : String(tableNode.attrs.bottomRules ?? '');
 	}
 	return { rowRules, bottomRule };
 }
@@ -87,6 +102,8 @@ function buildTableWrapperView(
 
 	const contentEl = document.createElement('div');
 	contentEl.className = 'table-wrapper-content';
+	// a typst table narrower than the line is centred inside its figure, as typst lays it out
+	if (dialect === 'typst') contentEl.classList.add('typst-table-figure');
 
 	function updateClasses() {
 		if (currentNode.attrs.showNotes) {
@@ -132,7 +149,7 @@ function buildTableWrapperView(
 		if (pos === undefined) return;
 		const updated = view.state.doc.nodeAt(pos);
 		if (updated) {
-			const r = collectRowRules(updated);
+			const r = collectRowRules(updated, dialect);
 			componentProps.rowRules = r.rowRules;
 			componentProps.bottomRule = r.bottomRule;
 		}
@@ -151,7 +168,8 @@ function buildTableWrapperView(
 		if (rowAbs === null) return;
 		const row = view.state.doc.nodeAt(rowAbs);
 		if (!row) return;
-		view.dispatch(view.state.tr.setNodeMarkup(rowAbs, undefined, { ...row.attrs, topRules: rule }));
+		const attrs = dialect === 'typst' ? { ...row.attrs, typRules: withHline(row.attrs.typRules, rule) } : { ...row.attrs, topRules: rule };
+		view.dispatch(view.state.tr.setNodeMarkup(rowAbs, undefined, attrs));
 		refreshRowRules();
 	}
 
@@ -159,7 +177,11 @@ function buildTableWrapperView(
 		const tableAbs = getTableAbsPos();
 		const tableNode = tableAbs === null ? null : view.state.doc.nodeAt(tableAbs);
 		if (tableAbs === null || !tableNode) return;
-		view.dispatch(view.state.tr.setNodeMarkup(tableAbs, undefined, { ...tableNode.attrs, bottomRules: rule }));
+		const attrs =
+			dialect === 'typst'
+				? { ...tableNode.attrs, typBottomRules: withHline(tableNode.attrs.typBottomRules, rule) }
+				: { ...tableNode.attrs, bottomRules: rule };
+		view.dispatch(view.state.tr.setNodeMarkup(tableAbs, undefined, attrs));
 		refreshRowRules();
 	}
 
@@ -206,7 +228,7 @@ function buildTableWrapperView(
 	const initialData = calculateTableData();
 
 	// $state so prop mutations reach the component (svelte 5)
-	const initialRules = collectRowRules(currentNode);
+	const initialRules = collectRowRules(currentNode, dialect);
 	const componentProps = $state({
 		dialect,
 		tableNumber: initialData.tableNumber,
@@ -219,7 +241,10 @@ function buildTableWrapperView(
 		setBottomRule,
 		colspec: colspecOf(currentNode),
 		tableEnv: envOf(currentNode),
-		setColspec
+		setColspec,
+		// the typst sections edit the table itself: they need the editor, and where the table is
+		editorView: view,
+		tablePos: getTableAbsPos
 	});
 
 	const component = mount(TableWrapperComponent, {
@@ -253,7 +278,7 @@ function buildTableWrapperView(
 			componentProps.node = currentNode;
 
 			// keep the editable row-rule list + column spec in sync (rows/columns added/removed, etc.)
-			const rules = collectRowRules(currentNode);
+			const rules = collectRowRules(currentNode, dialect);
 			componentProps.rowRules = rules.rowRules;
 			componentProps.bottomRule = rules.bottomRule;
 			componentProps.colspec = colspecOf(currentNode);

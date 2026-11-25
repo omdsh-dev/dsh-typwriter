@@ -12,10 +12,11 @@ import {
 	mergeCells,
 	splitCell
 } from 'prosemirror-tables';
-import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal } from '@lucide/svelte';
+import { AlignCenter, AlignLeft, AlignRight, Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal } from '@lucide/svelte';
 import { editorViewStore } from '$lib/stores/editorStore';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { pasteFromClipboard, pasteWithoutFormatting } from '$lib/editor/paste/visualClipboardPaste';
+import { cellAlignTr, type Side } from '$lib/languages/typst/visual/serialize/tableFormatting';
 import type { Dialect } from '$lib/editor/visual/dialect';
 import { m } from '$lib/paraglide/messages';
 
@@ -160,6 +161,26 @@ export function buildTableMenuItems(deps: TableMenuDeps): ContextMenuEntry[] {
 			}
 		},
 		{ type: 'separator', showFor: ['cell'], showWhen: () => cellMerging && (deps.canMerge() || deps.canSplit()) },
+		// typst only: a cell can carry its own align:, which LaTeX's column model has no place for
+		...(dialect === 'typst'
+			? (
+					[
+						{ label: m.ctxmenu_cell_left(), icon: AlignLeft, side: 'left' },
+						{ label: m.ctxmenu_cell_center(), icon: AlignCenter, side: 'center' },
+						{ label: m.ctxmenu_cell_right(), icon: AlignRight, side: 'right' }
+					] as { label: string; icon: Component; side: Side }[]
+				).map(({ side, ...entry }): ContextMenuEntry => ({
+					type: 'item',
+					...entry,
+					showFor: ['cell'],
+					action: () => {
+						const view = editorView()!;
+						const tr = cellAlignTr(view.state, side);
+						if (tr) view.dispatch(tr);
+					}
+				}))
+			: []),
+		{ type: 'separator', showFor: ['cell'], showWhen: () => dialect === 'typst' },
 		{
 			type: 'item',
 			label: m.ctxmenu_delete_column(),

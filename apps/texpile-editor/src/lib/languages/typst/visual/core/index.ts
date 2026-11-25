@@ -34,6 +34,7 @@ export { CodeBlockView } from '$lib/editor/visual/extensions/codemirrorbridge/cm
 export { default as FigurePlaceholder } from '$lib/draw/host/card/FigurePlaceholder.svelte';
 
 export { typstLengthCss, typstSidesCss } from '../extensions/css/typstLengthCss';
+export { typstColorCss } from '../extensions/css/typstColor';
 export { cssDeclarations, typstTextDeclarations } from '../extensions/css/typstTextStyle';
 export { blockStyle, columnsCss, horizontalAlignment, strokeCss } from '../extensions/layout/layoutDrawing';
 

@@ -5,7 +5,9 @@ import {
 	hashedCode,
 	ownsLineEnd,
 	parseTracks,
+	pctOnlyRatio,
 	toFrTracks,
+	toPercentTracks,
 	type TypstSaveCore
 } from '$lib/languages/typst/visual/core/document';
 import { headerRows } from '../typstHeaderRows';
@@ -50,7 +52,22 @@ export function rowCells(row: Node, core: TypstSaveCore): string {
 	return cells.join(', ');
 }
 
-type TableRow = { cells: Node[]; isHeader: boolean; rules: unknown };
+/** a row as it stands in the file: its height, and every other named argument of a `table.row(..)` */
+type RowLook = { height: string | null; own: string[] };
+
+type TableRow = { cells: Node[]; isHeader: boolean; rules: unknown } & RowLook;
+
+function rowLook(row: Node): RowLook {
+	return {
+		height: typeof row.attrs.typRowHeight === 'string' && row.attrs.typRowHeight.trim() ? row.attrs.typRowHeight.trim() : null,
+		own: asStrings(row.attrs.typRowArgs)
+	};
+}
+
+/** the named arguments a `table.row(..)` carries: the height first, the rest as written */
+function rowArgsOf(row: RowLook): string[] {
+	return [...(row.height ? [`height: ${row.height}`] : []), ...row.own];
+}
 
 function tableRows(node: Node): TableRow[] {
 	const rows: TableRow[] = [];
@@ -59,7 +76,7 @@ function tableRows(node: Node): TableRow[] {
 		if (row.type.name !== 'table_row') return;
 		const cells: Node[] = [];
 		row.forEach((cell) => cells.push(cell));
-		rows.push({ cells, isHeader: header.has(i), rules: row.attrs.typRules });
+		rows.push({ cells, isHeader: header.has(i), rules: row.attrs.typRules, ...rowLook(row) });
 	});
 	return rows;
 }
@@ -91,13 +108,19 @@ function columnsOf(node: Node, rows: TableRow[], cols: number): string {
 	// colspecFor's own fallback takes over.
 	const current = columnWidths(rows, cols);
 	const tracks = parseTracks(node.attrs.colspec, cols);
+	// a list of percentages that does not add up to a whole line is a NARROW table: its cells were
+	// measured against a table three fifths wide, so that is the width the tracks are compared in.
+	// A drag there keeps percentages - `fr` would stretch the table back out to the full line
+	const narrow = tracks ? pctOnlyRatio(tracks) : null;
 	// the widths the colspec itself implies, spent over the same total the cells were measured
 	// against, so "did the user drag" is a comparison of like with like
 	const measured = current.reduce<number>((a, w) => a + (w ?? 0), 0);
-	const baseline = tracks && measured > 0 ? distribute(tracks, measured) : null;
+	const baseline = tracks && measured > 0 ? distribute(tracks, narrow && narrow > 0 ? measured / narrow : measured) : null;
 	const dragged = baseline
 		? current.some((w, i) => Math.abs((w ?? 0) - (baseline[i] ?? 0)) > 1)
-			? toFrTracks(current)
+			? narrow != null
+				? toPercentTracks(current, narrow)
+				: toFrTracks(current)
 			: null
 		: tracks
 			? null
@@ -126,7 +149,7 @@ export function tableFrame(node: Node): string {
 	const cols = gridWidth(rows);
 	const shapes = rows.map(
 		(r) =>
-			`${r.isHeader ? 'header' : 'body'} ${asStrings(r.rules).join(' ')} ${r.cells.map((c) => `${c.attrs.colspan ?? 1}x${c.attrs.rowspan ?? 1}`).join(',')}`
+			`${r.isHeader ? 'header' : 'body'} ${asStrings(r.rules).join(' ')} ${rowArgsOf(r).join(' ')} ${r.cells.map((c) => `${c.attrs.colspan ?? 1}x${c.attrs.rowspan ?? 1}`).join(',')}`
 	);
 	return [columnsOf(node, rows, cols), alignOf(node, cols) ?? '', ...shapes].join('\n');
 }
@@ -138,8 +161,14 @@ export function tableBody(node: Node, indent: string, core: TypstSaveCore): stri
 	function call(cell: Node) {
 		return cellCall(cell, core);
 	}
-	function rowLine(r: { cells: Node[] }) {
-		return `  ${r.cells.map(call).join(', ')},`;
+	function rowLine(r: TableRow) {
+		return `  ${rowOf(r)},`;
+	}
+	/** a row's cells, inside `table.row(..)` when the row has arguments of its own, else bare */
+	function rowOf(r: TableRow): string {
+		const cells = r.cells.map(call).join(', ');
+		const args = rowArgsOf(r);
+		return args.length ? `table.row(${args.join(', ')}, ${cells})` : cells;
 	}
 	const lines = [`  columns: ${columnsOf(node, rows, cols)},`];
 	const align = alignOf(node, cols);
@@ -176,14 +205,11 @@ export function tableBody(node: Node, indent: string, core: TypstSaveCore): stri
 			else break;
 		}
 		const run = rows.slice(i, j + 1).filter((h) => h.cells.length);
-		if (run.length === 1) lines.push(`  table.header(${run[0].cells.map(call).join(', ')}),`);
+		if (run.length === 1) lines.push(`  table.header(${rowOf(run[0])}),`);
 		else
 			lines.push(
 				'  table.header(',
-				...run.flatMap((h, k) => [
-					...(k ? asStrings(h.rules).map((rule) => argLine(`    `, rule)) : []),
-					`    ${h.cells.map(call).join(', ')},`
-				]),
+				...run.flatMap((h, k) => [...(k ? asStrings(h.rules).map((rule) => argLine(`    `, rule)) : []), `    ${rowOf(h)},`]),
 				'  ),'
 			);
 		i = j;

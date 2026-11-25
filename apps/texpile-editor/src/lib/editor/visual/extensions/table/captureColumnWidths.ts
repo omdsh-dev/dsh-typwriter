@@ -14,10 +14,10 @@
 // than it sounds: updateColumnsOnResize pins a FULLY sized table to the sum of its columns
 // (table.style.width), so being a few pixels over the container is the difference between a table
 // that fits and one with a scrollbar under it.
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { Node } from 'prosemirror-model';
-import { parseTracks, distribute, toFrShares, type Track } from '$lib/languages/typst/visual/serialize/tracks';
+import { parseTracks, distribute, toFrShares, tracksWidth, type Track } from '$lib/languages/typst/visual/serialize/tracks';
 
 const key = new PluginKey('captureColumnWidths');
 
@@ -92,9 +92,8 @@ function sizedCounts(table: Node): { sized: number; bare: number } {
 	return { sized, bare };
 }
 
-/** write one width per column onto the cells that start in it. */
-function applyWidths(view: EditorView, table: Node, pos: number, cols: number, widths: (number | null)[]): boolean {
-	const tr = view.state.tr;
+/** write one width per column onto the cells that start in it, in the transaction given */
+function withColumnWidths(tr: Transaction, table: Node, pos: number, cols: number, widths: (number | null)[]): boolean {
 	const covered = new Set<string>();
 	let changed = false;
 	table.forEach((row, rowOffset, r) => {
@@ -113,8 +112,43 @@ function applyWidths(view: EditorView, table: Node, pos: number, cols: number, w
 			c += span;
 		});
 	});
-	if (changed) view.dispatch(tr.setMeta('addToHistory', false));
 	return changed;
+}
+
+function applyWidths(view: EditorView, table: Node, pos: number, cols: number, widths: (number | null)[]): boolean {
+	const tr = view.state.tr;
+	if (!withColumnWidths(tr, table, pos, cols, widths)) return false;
+	view.dispatch(tr.setMeta('addToHistory', false));
+	return true;
+}
+
+/** how many columns the table has (its widest row, spans counted) */
+export function columnCountOf(table: Node): number {
+	return gridWidth(table);
+}
+
+/**
+ * The table at `pos` as it is on screen: every column's rendered width and the width it has to
+ * itself. Null before the table has been laid out (a hidden pane reports zero).
+ */
+export function renderedColumns(view: EditorView, pos: number, cols: number): { widths: number[]; total: number } | null {
+	const dom = view.nodeDOM(pos);
+	if (!(dom instanceof HTMLElement)) return null;
+	return measure(dom, cols);
+}
+
+/**
+ * A transaction that gives the table at `pos` new `columns:` tracks AND the pixel widths they mean,
+ * so the screen agrees with the source from the same step. Not dispatched: the caller adds its own
+ * steps and undo takes the whole change back at once.
+ */
+export function fitTracksTr(view: EditorView, pos: number, table: Node, tracks: Track[], colspec: string): Transaction | null {
+	const cols = gridWidth(table);
+	const m = renderedColumns(view, pos, cols);
+	if (!m) return null;
+	const tr = view.state.tr.setNodeMarkup(pos, undefined, { ...table.attrs, colspec });
+	withColumnWidths(tr, table, pos, cols, distribute(tracks, m.total));
+	return tr;
 }
 
 /**
@@ -131,7 +165,7 @@ function sync(view: EditorView): boolean {
 		const { sized, bare } = sizedCounts(node);
 
 		// nothing to do: no source tracks to honour and no drag to finish
-		const tracks = sized === 0 ? parseTracks(node.attrs.colspec, cols) : null;
+		const tracks = parseTracks(node.attrs.colspec, cols);
 		const wantsOpen = sized === 0 && !!tracks && !tracks.every((t) => t.kind === 'auto');
 		const partlySized = sized > 0 && bare > 0;
 		if (!wantsOpen && sized === 0) return false;
@@ -144,11 +178,17 @@ function sync(view: EditorView): boolean {
 			return false;
 		}
 
+		// The width the source's own tracks give the table, when they give it one at all. A list of
+		// percentages short of a whole line is a NARROW table: it is compared against that width, and
+		// a drag redistributes inside it instead of stretching the table out to the full line.
+		const fits = tracks ? tracksWidth(tracks, m.total) : null;
+		const room = fits != null && fits > 0 && fits < m.total ? fits : m.total;
+
 		// A fully sized table still needs correcting when its columns no longer add up to the space
 		// available - the pane was resized, or a column was added. Without this a table that once
 		// overflowed keeps its scrollbar forever, since nothing else revisits it. distribute() spends
 		// the total exactly, so the next pass finds a difference of zero and stops.
-		const wantsDrag = partlySized || overflowBy(m.widths, m.total) > 2;
+		const wantsDrag = partlySized || overflowBy(m.widths, fits ?? m.total) > 2;
 		if (!wantsOpen && !wantsDrag) return false;
 
 		if (wantsDrag) {
@@ -156,7 +196,7 @@ function sync(view: EditorView): boolean {
 			const shares = toFrShares(m.widths);
 			if (!shares) return false;
 			const snapped: Track[] = shares.map((s) => (s == null ? { kind: 'auto' } : { kind: 'fr', value: s }));
-			applyWidths(view, node, pos, cols, distribute(snapped, m.total));
+			applyWidths(view, node, pos, cols, distribute(snapped, room));
 		} else {
 			applyWidths(view, node, pos, cols, distribute(tracks!, m.total));
 		}

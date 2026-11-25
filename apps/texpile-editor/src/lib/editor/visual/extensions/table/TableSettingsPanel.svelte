@@ -3,7 +3,9 @@
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import { ChevronDown, Info, AlignLeft, AlignCenter, AlignRight, WrapText, StretchHorizontal } from '@lucide/svelte';
 	import type { Node } from 'prosemirror-model';
+	import type { EditorView } from 'prosemirror-view';
 	import TableAdvancedSection from './TableAdvancedSection.svelte';
+	import TypstTableSection from '$lib/languages/typst/visual/panel/TypstTableSection.svelte';
 	import { templateFeaturesStore } from '$lib/stores/editorStore';
 	import { parseColspec, generateColspec, type ColspecColumn } from '$lib/languages/latex/parser/colspec';
 	import { columnTypeWorksIn } from '$lib/languages/latex/knowledge/registries/columnTypes';
@@ -23,6 +25,9 @@
 		colspec: string;
 		tableEnv: string;
 		setColspec: (spec: string) => void;
+		/** the typst section edits the table node itself; it needs the editor and where the table is */
+		editorView?: EditorView;
+		tablePos?: () => number | null;
 	};
 
 	let {
@@ -37,7 +42,9 @@
 		setBottomRule,
 		colspec,
 		tableEnv,
-		setColspec
+		setColspec,
+		editorView,
+		tablePos
 	}: Props = $props();
 
 	const ALIGN_ICONS = [
@@ -160,6 +167,9 @@
 			</Switch>
 			<hr class="border-surface-200-800 mt-3" />
 		</div>
+	{:else if dialect === 'typst' && editorView && tablePos}
+		<!-- a typst table's width, lines, padding and columns are arguments of the table itself -->
+		<TypstTableSection view={editorView} {tablePos} {node} />
 	{:else if colspec && colspec.trim()}
 		<!-- spec too exotic to model visually: edit the verbatim string -->
 		<div class="settings-row">

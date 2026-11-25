@@ -4,6 +4,7 @@
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { Settings, AlertCircle } from '@lucide/svelte';
 	import type { Node } from 'prosemirror-model';
+	import type { EditorView } from 'prosemirror-view';
 	import TableSettingsPanel from './TableSettingsPanel.svelte';
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { templateFeaturesStore } from '$lib/stores/editorStore';
@@ -25,6 +26,9 @@
 		colspec: string;
 		tableEnv: string;
 		setColspec: (spec: string) => void;
+		// the typst sections edit the table node itself: they need the editor and where it stands
+		editorView?: EditorView;
+		tablePos?: () => number | null;
 	};
 
 	let {
@@ -39,7 +43,9 @@
 		setBottomRule,
 		colspec,
 		tableEnv,
-		setColspec
+		setColspec,
+		editorView,
+		tablePos
 	}: Props = $props();
 
 	const tableCaptionEnabled = $derived(templateFeaturesStore.current?.tableCaption ?? true);
@@ -116,6 +122,8 @@
 							{colspec}
 							{tableEnv}
 							{setColspec}
+							{editorView}
+							{tablePos}
 						/>
 					</Popover.Content>
 				</Popover.Positioner>
