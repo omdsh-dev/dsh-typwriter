@@ -32,6 +32,7 @@ import { crossBlockEdits } from '$lib/editor/visual/extensions/crossBlockEdits';
 import { columnResizing } from '$lib/editor/visual/extensions/table/columnResizing';
 import { snapWidthToFr } from '$lib/editor/visual/extensions/table/snapWidth';
 import { captureColumnWidths } from '$lib/editor/visual/extensions/table/captureColumnWidths';
+import { paraFormatLook } from './extensions/paragraphFormat/paraFormatLook';
 import {
 	createListEventPlugin,
 	createListRenderingPlugin,
@@ -290,6 +291,8 @@ export function typstEditorPlugins(setup: TypstEditorSetup): Plugin[] {
 		// the serializer needs to emit proportions instead of one fr beside two autos.
 		columnResizing({ snap: snapWidthToFr, redistribute: true }),
 		captureColumnWidths,
+		// a paragraph container's rules drawn on it: alignment, first-line indent, leading
+		paraFormatLook,
 		tableEditing(),
 		...pluginEditorPlugins('afterTableEditing'),
 		wholeTableEdits,

@@ -7,7 +7,7 @@ import { hasSyntaxError } from '$lib/languages/typst/knowledge/scan/syntax';
 import { children, childOf } from './reading/syntaxUtils';
 import { calleeName, positionalParam, wrapsContent } from './reading/callLevel';
 import { codeBodyNode } from './calls/codeBody';
-import { setsOnlyStyle } from './calls/styleRules';
+import { leadsWithParagraphRules, setsOnlyStyle } from './calls/styleRules';
 import { convertMarkup, ensureBlocks, notedBlocks, type Seg } from './converter';
 import { aloneWithLabel, lineIndent } from './reading/blockEnds';
 import { noteBlockSpan } from '$lib/editor/visual/sourceSpans';
@@ -62,8 +62,12 @@ function envCallParts(call: SyntaxNode, src: string): EnvCallParts | null {
 	return { name, args: src.slice(open.to, close.from), body, bodyArg: null };
 }
 
+// `#[...]` standing alone: a block of style rules and nothing else, or one that opens with the
+// rules the paragraph settings write and goes on to the text they shape. Both are a container with
+// no name, written back as the content block it was.
 function styledBlockParts(block: SyntaxNode, src: string): EnvCallParts | null {
-	return isBrackets(block) && setsOnlyStyle(block, src) ? { name: '', args: null, body: block, bodyArg: null } : null;
+	if (!isBrackets(block)) return null;
+	return setsOnlyStyle(block, src) || leadsWithParagraphRules(block, src) ? { name: '', args: null, body: block, bodyArg: null } : null;
 }
 
 export function contentBody(body: SyntaxNode, src: string): { blocks: PmNode[]; bodyLead: string; bodyTrail: string } | null {

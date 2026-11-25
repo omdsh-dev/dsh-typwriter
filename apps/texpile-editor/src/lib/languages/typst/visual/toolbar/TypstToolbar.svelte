@@ -13,6 +13,8 @@
 	import { typSchema } from '../schema';
 	import StyleList from '$lib/editor/visual/insert/StyleList.svelte';
 	import TypstToolbarTable from './TypstToolbarTable.svelte';
+	import ParaAlignButtons from './ParaAlignButtons.svelte';
+	import ParaFormatPopover from './ParaFormatPopover.svelte';
 	import SupSubDropdown from '$lib/editor/visual/toolbar/SupSubDropdown.svelte';
 	import TextColorDropdown from '$lib/editor/visual/toolbar/TextColorDropdown.svelte';
 	import HighlightDropdown from '$lib/editor/visual/toolbar/HighlightDropdown.svelte';
@@ -107,6 +109,12 @@
 						<StyleList />
 					</div>
 				{/snippet}
+				{#snippet tb_paralign()}
+					<ParaAlignButtons />
+				{/snippet}
+				{#snippet tb_parfmt()}
+					<ParaFormatPopover />
+				{/snippet}
 				{#snippet tb_bold()}
 					{@render iconButton(m.toolbar_bold_aria(), !!active.strong, toggleMark(typSchema.marks.strong), Bold)}
 				{/snippet}
@@ -185,6 +193,8 @@
 					menuLabel={m.toolbar_more_actions_aria()}
 					items={[
 						{ id: 'heading', render: tb_heading },
+						{ id: 'paralign', render: tb_paralign },
+						{ id: 'parfmt', render: tb_parfmt },
 						{ id: 'bold', render: tb_bold },
 						{ id: 'italic', render: tb_italic },
 						{ id: 'underline', render: tb_underline },
