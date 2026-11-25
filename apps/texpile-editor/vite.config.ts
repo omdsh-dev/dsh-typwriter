@@ -133,7 +133,12 @@ export default defineConfig(({ mode }) => ({
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',
-			emitTsDeclarations: true
+			emitTsDeclarations: true,
+			// message functions as files on disk, not as virtual modules. paraglide 3 emits virtual
+			// modules by default and only this plugin can resolve them, and the web workers are
+			// bundled without it (worker.plugins below): their build fails on the first import of
+			// $lib/paraglide/messages. Nothing runs that build in CI, so it would fail on release.
+			outputStructure: 'message-modules'
 		}),
 		// the spelling dictionaries for languages other than English
 		...(mode === 'test' ? [] : [spellDictionaries(__dirname)]),
