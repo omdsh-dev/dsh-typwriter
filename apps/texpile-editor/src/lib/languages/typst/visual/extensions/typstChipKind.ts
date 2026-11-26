@@ -11,6 +11,7 @@ import { hashedCode } from '../core/code/codeSource';
 import { isFigureBlock } from '$lib/draw/host/card/FigureCardView.svelte';
 import { cetzLanguage } from '$lib/draw/cetz/cetzLanguage';
 import { isTypstBibliography } from './typstBibliographyView.svelte';
+import { openParagraphDialog } from '../openParagraphDialog.svelte';
 
 function parsed(source: string) {
 	try {
@@ -29,6 +30,11 @@ export function typstChipKind(block: boolean): DrawnChipKind {
 		makeSource: (node, view, getPos) => (block ? new RawLatexView(node, view, getPos) : new InlineLatexView(node, view, getPos)),
 		reparse: (source, chip) => (hashedCode(source) !== source ? null : chipReplacement(parsed(source), chip, block)),
 		settingsFor: typstChipSettings,
+		// the rules a paragraph's settings are written as are drawn as a paragraph mark: a press on it opens the dialog
+		markPress: (_source, view) => {
+			openParagraphDialog(view);
+			return true;
+		},
 		jump: () => {},
 		jumpToDefinition: () => {}
 	};
