@@ -13,6 +13,7 @@
 	import { showContextMenu, type ContextMenuItem } from '$lib/menus/contextMenu.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { refineMenuItems } from '$lib/ai/refineMenu';
+	import { agentEditMenuItems } from '$lib/ai/agentEditMenu';
 	import type { ShowInOutput } from './showInOutput';
 
 	type Props = {
@@ -152,6 +153,9 @@
 		}
 		const refine = refineMenuItems(hasTextSelection);
 		if (refine.length) items.push({ separator: true }, ...refine);
+		// the AGENT's edits of the selection, each run at once, as DSH-better-sidebar's selection menu has its rewrites
+		const agentEdit = agentEditMenuItems(hasTextSelection);
+		if (agentEdit.length) items.push({ separator: true }, ...agentEdit);
 		if (onAddComment) {
 			// the same gesture the floating tooltip offers, for people who reach for the menu;
 			// disabled rather than hidden with nothing selected, so it is discoverable

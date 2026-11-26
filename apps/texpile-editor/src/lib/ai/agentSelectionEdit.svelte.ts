@@ -19,12 +19,25 @@ export type AgentEditCardState = {
 	pmTo: number;
 };
 
+/** 选区按 AGENT 要的样子：文件里的范围，以及它在可视化编辑器里的位置 */
+export type PreparedAgentEdit = {
+	region: RegionPayload;
+	pmFrom: number;
+	pmTo: number;
+};
+
 export type AgentSelectionEditService = {
 	/** 当前文档能不能用（Typst 可视化、非 guest、有 AGENT 桥） */
 	available(): boolean;
+	/** 可视化页是否在前面：右键菜单里的入口只在它上面给出 */
+	visual(): boolean;
+	/** 把当前选区换算好；null = 没有选区，或映射不到源码。在菜单建好时就量：点菜单项会把页面上的选区拿掉 */
+	prepare(): PreparedAgentEdit | null;
 	/** 从当前选区生成行范围并打开输入卡；false = 选区映射失败 */
 	start(anchor: DOMRect): boolean;
-	/** 把用户的提示交给 AGENT；失败返回错误文本 */
+	/** 把菜单里的一项任务直接交给 AGENT，用在 prepare 量好的选区上；失败返回错误文本 */
+	run(prepared: PreparedAgentEdit, intent: string): Promise<string | null>;
+	/** 把用户写的提示交给 AGENT；失败返回错误文本 */
 	send(prompt: string): Promise<string | null>;
 	busy(): boolean;
 };

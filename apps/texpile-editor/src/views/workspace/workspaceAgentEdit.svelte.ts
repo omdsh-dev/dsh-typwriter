@@ -4,7 +4,7 @@ import { selectedSpan, type SpanDeps } from './selectedSpan';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 import { sourceAnchorFor } from '$lib/editor/visual/extensions/pmComments';
 import { sendRegionEdit, type RegionPayload } from '$lib/languages/typst/preview/agentCanvas/agentCanvasTurn';
-import { agentEditService, agentEditCard, type AgentSelectionEditService } from '$lib/ai/agentSelectionEdit.svelte';
+import { agentEditService, agentEditCard, type AgentSelectionEditService, type PreparedAgentEdit } from '$lib/ai/agentSelectionEdit.svelte';
 import { setAgentEditHighlight, clearAgentEditHighlight } from '$lib/editor/visual/extensions/agentEditHighlight';
 import { setSourceAgentEditHighlight, clearSourceAgentEditHighlight } from '$lib/editor/source/extensions/agentEditHighlight';
 
@@ -50,18 +50,32 @@ export function wireAgentSelectionEdit(d: Wiring): void {
 		return { region: regionOf({ text, from: anchor.start, to: anchor.end }, file), snippet: text.slice(anchor.start, anchor.end) };
 	}
 
+	/** 当前选区换算好；null = 没有选区，或映射不到源码 */
+	function selection(): PreparedAgentEdit | null {
+		const got = regionFromSelection();
+		const view = editorViewStore.current;
+		const sel = view?.state.selection;
+		if (!got || !view || !sel) return null;
+		return { region: got.region, pmFrom: sel.from, pmTo: sel.to };
+	}
+
 	const service: AgentSelectionEditService = {
 		available,
+		visual: () => d.modes.mode === 'visual',
+		prepare() {
+			if (!available()) return null;
+			// 只在可视化页上：源码页的选区高亮画在 PM 位置上，画不到
+			return d.modes.mode === 'visual' ? selection() : null;
+		},
 		start(anchor) {
 			if (!available()) return false;
-			const got = regionFromSelection();
-			if (!got) return false;
+			const ready = selection();
+			if (!ready) return false;
 			const view = editorViewStore.current;
-			const sel = view?.state.selection;
-			if (!view || !sel) return false;
+			if (!view) return false;
 			try {
-				const a = view.coordsAtPos(sel.from);
-				const b = view.coordsAtPos(sel.to);
+				const a = view.coordsAtPos(ready.pmFrom);
+				const b = view.coordsAtPos(ready.pmTo);
 				const left = Math.min(a.left, b.left);
 				const top = Math.min(a.top, b.top);
 				const rect = {
@@ -70,41 +84,47 @@ export function wireAgentSelectionEdit(d: Wiring): void {
 					width: Math.max(a.right, b.right) - left,
 					height: Math.max(a.bottom, b.bottom) - top
 				};
-				agentEditCard.current = { anchor, region: got.region, snippet: got.snippet.trim(), rect, pmFrom: sel.from, pmTo: sel.to };
+				agentEditCard.current = { anchor, ...ready, snippet: ready.region.quote?.trim() ?? '', rect };
 				return true;
 			} catch {
 				return false;
 			}
 		},
+		run: (prepared, intent) => dispatch(prepared, intent),
 		async send(prompt) {
 			const card = agentEditCard.current;
 			if (!card) return '没有可发送的选区';
-			const from = card.region.fromChar;
-			const to = card.region.toChar;
-			const pmFrom = card.pmFrom;
-			const pmTo = card.pmTo;
-			function paint(): void {
-				// 可视化页用 PM 位置（不能用源码 offset），源码页用字符 offset；split 时两边都画
-				setAgentEditHighlight(editorViewStore.current, pmFrom, pmTo);
-				if (from !== undefined && to !== undefined) setSourceAgentEditHighlight(sourceCmView.current, from, to);
-			}
-			function clear(): void {
-				clearAgentEditHighlight(editorViewStore.current);
-				clearSourceAgentEditHighlight(sourceCmView.current);
-				window.removeEventListener('typwriter:agent-turn-end', clear);
-			}
-			paint();
-			window.addEventListener('typwriter:agent-turn-end', clear, { once: true });
-			try {
-				await sendRegionEdit(card.region, prompt);
-				return null;
-			} catch (e) {
-				clear();
-				return e instanceof Error ? e.message : String(e);
-			}
+			return dispatch(card, prompt);
 		},
 		busy: () => agentEditCard.current !== null
 	};
+
+	/** 把一段意图连同选区交给 AGENT，选区在两页上高亮到这一轮结束；失败返回错误文本 */
+	async function dispatch(target: PreparedAgentEdit, prompt: string): Promise<string | null> {
+		const from = target.region.fromChar;
+		const to = target.region.toChar;
+		const pmFrom = target.pmFrom;
+		const pmTo = target.pmTo;
+		function paint(): void {
+			// 可视化页用 PM 位置（不能用源码 offset），源码页用字符 offset；split 时两边都画
+			setAgentEditHighlight(editorViewStore.current, pmFrom, pmTo);
+			if (from !== undefined && to !== undefined) setSourceAgentEditHighlight(sourceCmView.current, from, to);
+		}
+		function clear(): void {
+			clearAgentEditHighlight(editorViewStore.current);
+			clearSourceAgentEditHighlight(sourceCmView.current);
+			window.removeEventListener('typwriter:agent-turn-end', clear);
+		}
+		paint();
+		window.addEventListener('typwriter:agent-turn-end', clear, { once: true });
+		try {
+			await sendRegionEdit(target.region, prompt);
+			return null;
+		} catch (e) {
+			clear();
+			return e instanceof Error ? e.message : String(e);
+		}
+	}
 	agentEditService.current = service;
 	$effect(() => () => {
 		if (agentEditService.current === service) agentEditService.current = null;

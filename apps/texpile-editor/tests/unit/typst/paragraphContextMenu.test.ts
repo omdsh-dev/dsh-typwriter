@@ -14,6 +14,7 @@ import ContextMenuHost from '$lib/menus/ContextMenuHost.svelte';
 import { closeContextMenu } from '$lib/menus/contextMenu.svelte';
 import { closeParagraphDialog } from '$lib/languages/typst/visual/openParagraphDialog.svelte';
 import { typstChipKind } from '$lib/languages/typst/visual/extensions/typstChipKind';
+import { agentEditService } from '$lib/ai/agentSelectionEdit.svelte';
 
 // jsdom has no layout; coordsAtPos only needs rects that exist
 if (!Range.prototype.getClientRects) {
@@ -54,6 +55,18 @@ async function rightClick(): Promise<void> {
 	view!.dom.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
 	await tick();
 	flushSync();
+}
+
+/** the words `needle` selected in the editor, as a person selects them before asking for the menu */
+function select(needle: string): void {
+	const doc = view!.state.doc;
+	let from = -1;
+	doc.descendants((node, pos) => {
+		if (from < 0 && node.isText && node.text?.includes(needle)) from = pos + 1 + node.text.indexOf(needle);
+		return from < 0;
+	});
+	if (from < 0) throw new Error(`no "${needle}" in the document`);
+	view!.dispatch(view!.state.tr.setSelection(TextSelection.create(doc, from, from + needle.length)));
 }
 
 /** the item of the menu that is drawn, by its label */
@@ -97,6 +110,7 @@ afterEach(() => {
 	view?.destroy();
 	view = null;
 	editorViewStore.current = null;
+	agentEditService.current = null;
 	document.body.innerHTML = '';
 });
 
@@ -196,5 +210,65 @@ describe('the paragraph settings, as a person reaches them', () => {
 		button(m.parfmt_ok()).click();
 		flushSync();
 		expect(serializeToTypst(editor.state.doc)).toBe('#[\n  #set align(right)\n  #set par(justify: false)\n  一段。\n]\n\n另一段。');
+	});
+});
+
+describe('the AGENT’s edits of a selection, in the same menu', () => {
+	/** the visual page's service as the app registers it, remembering what it is asked to run */
+	function agent(prepared: boolean): string[] {
+		const asked: string[] = [];
+		agentEditService.current = {
+			available: () => true,
+			visual: () => true,
+			prepare: () =>
+				prepared
+					? {
+							region: {
+								file: '/paper/main.typ',
+								fromLine: 3,
+								toLine: 3,
+								via: 'visual-selection',
+								fromChar: 0,
+								toChar: 4,
+								quote: '第二段。'
+							},
+							pmFrom: 1,
+							pmTo: 5
+						}
+					: null,
+			start: () => true,
+			run: async (_at, intent) => {
+				asked.push(intent);
+				return null;
+			},
+			send: async () => null,
+			busy: () => false
+		};
+		return asked;
+	}
+
+	it('are an entry in the lower part of the menu once words are selected, with the tasks under it', async () => {
+		agent(true);
+		open(PLAIN, '第二段');
+		select('第二段');
+		await rightClick();
+		const labels = [...document.querySelectorAll('[role=menu] button')].map((el) => el.textContent?.trim() ?? '');
+		const at = labels.indexOf(m.agent_edit_menu());
+		expect(at).toBeGreaterThan(labels.indexOf(m.parctx_paragraph()));
+		expect(menuItem(m.agent_edit_menu()).disabled).toBe(false);
+	});
+
+	it('stay in the menu with nothing selected, where they cannot be opened', async () => {
+		agent(false);
+		open(PLAIN, '第二段');
+		await rightClick();
+		expect(menuItem(m.agent_edit_menu()).disabled).toBe(true);
+	});
+
+	it('are in no menu where the AGENT cannot edit a selection', async () => {
+		open(PLAIN, '第二段');
+		await rightClick();
+		const labels = [...document.querySelectorAll('[role=menu] button')].map((el) => el.textContent?.trim() ?? '');
+		expect(labels).not.toContain(m.agent_edit_menu());
 	});
 });

@@ -62,9 +62,10 @@ export function selectionToolbarRow(
 	}
 	const format = formatting.map((f) => ({ f, b: button(f.label, f.svg, '', () => f.run()) }));
 	const commentButton = button(commentLabel, COMMENT_ICON, '', comment);
-	const agentEdit = button('交给 AGENT 修改', AGENT_ICON, '', (b) => {
+	// named as the right-click menu's entry for it is
+	const agentEdit = button(m.agent_edit_menu(), AGENT_ICON, '', (b) => {
 		if (!agentEditService.current?.start(b.getBoundingClientRect())) {
-			toaster.warning({ title: '这段选区无法映射到源码，请重新划选后再试', duration: 5000 });
+			toaster.warning({ title: m.agent_edit_no_span(), duration: 5000 });
 		}
 	});
 	const refine = button('', REFINE_ICON, '', (b) =>
