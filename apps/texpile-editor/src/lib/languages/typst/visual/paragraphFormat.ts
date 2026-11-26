@@ -206,17 +206,6 @@ export function applyParaFormat(state: EditorState, patch: Partial<ParaFormat>):
 	return state.tr.replaceWith(range.from, range.to, containerOf(state.schema, written, state.doc.slice(range.from, range.to).content));
 }
 
-/**
- * What pressing one of the alignment buttons means: the side it shows, or typst's own when the
- * paragraphs are already on that side.
- */
-export function toggled(current: ParaFormat | null, align: Align, justify = false): { align: Align | null; justify: boolean | null } {
-	const on = justify
-		? current?.justify === true && (current.align == null || current.align === 'left')
-		: current?.align === align && current?.justify !== true;
-	return on ? { align: null, justify: null } : { align, justify };
-}
-
 /** the paragraph a container gives every one of its paragraphs, as css a browser can draw */
 export function paraStyle(format: ParaFormat, cssLength: (text: string) => string | null): { box: string; indent: string } {
 	const box: string[] = [];

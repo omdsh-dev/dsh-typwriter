@@ -5,7 +5,7 @@ import type { Node } from 'prosemirror-model';
 import { typstToProseMirror } from '$lib/languages/typst/visual/convert/converter';
 import { serializeToTypst } from '$lib/languages/typst/visual/serialize/serializer';
 import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
-import { applyParaFormat, paraFormatAt, toggled } from '$lib/languages/typst/visual/paragraphFormat';
+import { applyParaFormat, paraFormatAt } from '$lib/languages/typst/visual/paragraphFormat';
 import { paraFormatDecorations } from '$lib/languages/typst/visual/extensions/paragraphFormat/paraFormatLook';
 
 const PLAIN = '第一段。\n\n第二段。\n\n第三段。';
@@ -129,19 +129,6 @@ describe('the paragraph settings', () => {
 		expect(out).toContain('第一项');
 		expect(out.endsWith('- 第二项')).toBe(true);
 		expect(saved(out)).toBe(out);
-	});
-});
-
-describe('the alignment buttons', () => {
-	it('press the side the paragraphs are already on, and the setting comes off', () => {
-		expect(toggled(null, 'center')).toEqual({ align: 'center', justify: false });
-		expect(toggled({ align: 'center', justify: false, indent: null, leading: null }, 'center')).toEqual({ align: null, justify: null });
-		expect(toggled({ align: 'center', justify: false, indent: null, leading: null }, 'left')).toEqual({ align: 'left', justify: false });
-	});
-
-	it('justified is its own state, on the start side', () => {
-		expect(toggled({ align: 'left', justify: true, indent: null, leading: null }, 'left', true)).toEqual({ align: null, justify: null });
-		expect(toggled({ align: 'left', justify: false, indent: null, leading: null }, 'left', true)).toEqual({ align: 'left', justify: true });
 	});
 });
 

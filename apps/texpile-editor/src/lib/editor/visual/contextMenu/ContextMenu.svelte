@@ -4,7 +4,9 @@
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { onMount } from 'svelte';
 	import { CellSelection, mergeCells, splitCell } from 'prosemirror-tables';
-	import { ArrowRight, BookMarked, BookPlus, MessageSquarePlus } from '@lucide/svelte';
+	import { ArrowRight, BookMarked, BookPlus, MessageSquarePlus, PilcrowLeft } from '@lucide/svelte';
+	import type { EditorView } from 'prosemirror-view';
+	import ParagraphDialog from '$lib/languages/typst/visual/panel/ParagraphDialog.svelte';
 	import { TextSelection } from 'prosemirror-state';
 	import { setPmCommentPending, type SourceAnchorFn } from '$lib/editor/visual/extensions/pmComments';
 	import type { CommentAnchor } from '$lib/comments/anchor';
@@ -31,6 +33,10 @@
 	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split. Everywhere
 	// else has a spanning form the serializer emits: \multicolumn/\multirow in LaTeX,
 	// table.cell(colspan:/rowspan:) in Typst.
+
+	// the paragraph settings open from the menu, on the editor they were asked of
+	let paragraphOpen = $state(false);
+	let paragraphView = $state<EditorView | null>(null);
 
 	let isOnTable = false;
 	let selectionType: 'cell' | 'column' | 'row' | null = null;
@@ -134,6 +140,21 @@
 		const hasTextSelection = sel instanceof TextSelection && !sel.empty;
 
 		const items: ContextMenuItem[] = menuItems.map(entry);
+		// where Word's own menu has it, after the clipboard: the paragraph's alignment, indent and spacing.
+		// It is a dialog, so the editor is not refocused under it the way an action's menu item does.
+		if (dialect === 'typst') {
+			items.push(
+				{ separator: true },
+				{
+					label: m.parctx_paragraph(),
+					icon: PilcrowLeft,
+					onclick: () => {
+						paragraphView = editorViewStore.current;
+						paragraphOpen = true;
+					}
+				}
+			);
+		}
 		const refine = refineMenuItems(hasTextSelection);
 		if (refine.length) items.push({ separator: true }, ...refine);
 		if (onAddComment) {
@@ -199,6 +220,10 @@
 	// an editor in a window of its own
 	inChildWindows('contextmenu', handleContextMenu);
 </script>
+
+{#if paragraphOpen}
+	<ParagraphDialog view={paragraphView} onClose={() => (paragraphOpen = false)} />
+{/if}
 
 <style>
 	/* keep the editor selection visible while the context menu is open */
