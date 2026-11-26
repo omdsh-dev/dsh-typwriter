@@ -6,7 +6,7 @@ import { blockOriginOf } from '$lib/editor/visual/parseOrigins';
 import { codeHolderBody } from './elements/codeBodySource';
 
 // an editor-made container opens its body on a line of its own, indented like a quote's
-const DEFAULT_LEAD = '\n  ';
+export const DEFAULT_LEAD = '\n  ';
 const DEFAULT_TRAIL = '\n';
 
 export type EnvBodyRender = {

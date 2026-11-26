@@ -33,6 +33,11 @@ export type DrawnChipKind = {
 	reparse: ChipReparse;
 	/** the settings the panel shows instead of the chip's LaTeX, when the chip is one command they can hold exactly */
 	settingsFor(source: string): ChipSettings | null;
+	/**
+	 * What a press on the chip does while it is drawn as a mark beside the text (a decoration with
+	 * `data-chip-mark` on it asks for that), in place of opening its panel. True when it handled it.
+	 */
+	markPress?(source: string, view: EditorView, pos: number): boolean;
 	jump(label: string): void;
 	jumpToDefinition(name: string): void;
 	footerFor?(source: string): ChipPanelFooter | null;
@@ -42,6 +47,13 @@ export type DrawnChipKind = {
 
 // by node, for the keys: a chip drawn now, as ProseMirror holds it
 const drawnChips = new WeakMap<Node, DrawnChipView>();
+
+/** the attribute a decoration puts on a chip it draws as a mark beside the text, not on a line of its own */
+export const CHIP_MARK = 'data-chip-mark';
+
+function isMark(decorations: readonly Decoration[]): boolean {
+	return decorations.some((deco) => deco.spec?.[CHIP_MARK] !== undefined);
+}
 
 export function drawnChipOf(node: Node | null | undefined): DrawnChipView | null {
 	return (node && drawnChips.get(node)) ?? null;
@@ -69,6 +81,8 @@ export class DrawnChipView implements NodeView {
 	/** the source the face draws, which trails the node while a command is half typed in the panel */
 	private drawn = '';
 	private closing = 0;
+	/** drawn as a mark beside the text, which a decoration asks of it: not a line the keys stop on, then */
+	private mark = false;
 
 	constructor(
 		node: Node,
@@ -79,6 +93,7 @@ export class DrawnChipView implements NodeView {
 		face: ChipFace
 	) {
 		this.node = node;
+		this.mark = isMark(decorations);
 		this.dom = document.createElement(kind.block ? 'div' : 'span');
 		this.dom.className = 'drawn-chip';
 		this.face = face;
@@ -92,9 +107,9 @@ export class DrawnChipView implements NodeView {
 		return this.face?.character === true;
 	}
 
-	/** drawn on a line of its own, which vertical arrows stop on */
+	/** drawn on a line of its own, which vertical arrows stop on; a mark beside the text is not one */
 	get ownLine(): boolean {
-		return this.kind.block || this.face?.line === true;
+		return !this.mark && (this.kind.block || this.face?.line === true);
 	}
 
 	private showFace(face: ChipFace): void {
@@ -233,6 +248,8 @@ export class DrawnChipView implements NodeView {
 	private onMouseDown = (event: MouseEvent): void => {
 		if (this.source || event.button !== 0 || (event.target instanceof Element && event.target.closest('button'))) return;
 		event.preventDefault();
+		// a mark stands for something larger than its source: its kind says what a press on it opens
+		if (this.mark && this.kind.markPress?.(this.node.textContent, this.view, this.getPos())) return;
 		this.openPanel();
 	};
 
@@ -261,6 +278,7 @@ export class DrawnChipView implements NodeView {
 		if (drawnChips.get(this.node) === this) drawnChips.delete(this.node);
 		this.node = node;
 		this.decorations = decorations;
+		this.mark = isMark(decorations);
 		if (this.source) return this.source.update ? this.source.update(node, decorations, inner) : true;
 		if (this.face) drawnChips.set(node, this);
 		if (!changed && this.face) {

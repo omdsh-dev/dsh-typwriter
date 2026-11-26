@@ -6,8 +6,18 @@ import { children, childOf } from '../reading/syntaxUtils';
 const STYLED = new Set(['text', 'par']);
 const WRITTEN = new Set(['Str', 'Int', 'Float', 'Numeric', 'Bool', 'None', 'Auto', 'Ident']);
 
+/** a dictionary's values, each as the file wrote it */
+function dictValues(arg: CallArg): (SyntaxNode | undefined)[] {
+	return children(arg.node)
+		.filter((kid) => kid.name === 'Named')
+		.map((entry) => children(entry))
+		.map((parts) => parts.slice(parts.findIndex((part) => part.name === 'Colon') + 1).find((part) => part.name !== 'Space'));
+}
+
 function written(arg: CallArg, source: string): boolean {
-	return WRITTEN.has(arg.kind) || (arg.kind === 'FuncCall' && typstColorCss(arg.node, source) !== null);
+	if (WRITTEN.has(arg.kind) || (arg.kind === 'FuncCall' && typstColorCss(arg.node, source) !== null)) return true;
+	// a dictionary of such values, as a first-line indent is written: (amount: 2em, all: true)
+	return arg.kind === 'Dict' && dictValues(arg).every((value) => !!value && WRITTEN.has(value.name));
 }
 
 export function isStyleRule(rule: SyntaxNode, src: string): boolean {

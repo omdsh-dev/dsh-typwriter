@@ -1,0 +1,69 @@
+/* A paragraph's own settings, as Word shows them: as a paragraph mark, not as the code. */
+
+/* a content block that holds a paragraph and nothing over it is no box: the paragraph flows with the
+   text around it, as any paragraph does. Its margin stays, which is the room between paragraphs */
+.ProseMirror .typ-environment.typ-par-flow {
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+}
+
+/* a container whose rules are drawn as a mark: the mark stands at the start of its first line, where
+   the first paragraph's decoration has made room for it */
+.ProseMirror .typ-par-marked > .typ-layout-body {
+	position: relative;
+}
+
+/* the rules a paragraph container opens with are chips still (the dialog rewrites them, the source is
+   in them), drawn here as one small mark instead of a line of code */
+.ProseMirror .drawn-chip[data-chip-mark] {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.4em;
+	height: 1lh;
+	line-height: inherit;
+	opacity: 0.5;
+}
+
+/* the chip's own drawing (the call as written) gives way to the mark */
+.ProseMirror .drawn-chip[data-chip-mark]:not(.ProseMirror-selectednode) > * {
+	display: none;
+}
+.ProseMirror .drawn-chip[data-chip-mark='first']:not(.ProseMirror-selectednode)::before {
+	content: '¶';
+	font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
+	font-size: 0.95em;
+}
+
+/* a second rule is the same mark again: it waits behind the first, and comes forward when it is selected */
+.ProseMirror .drawn-chip[data-chip-mark='more']:not(.ProseMirror-selectednode) {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.ProseMirror .drawn-chip[data-chip-mark]:not(.ProseMirror-selectednode):hover {
+	opacity: 1;
+}
+
+/* selected (a search, a panel of its own), a rule is the chip it is again, on a line of its own above the paragraph */
+.ProseMirror .drawn-chip.ProseMirror-selectednode[data-chip-mark] {
+	position: static;
+	display: block;
+	width: auto;
+	height: auto;
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* the container of paragraphs with settings: a line at its side only while the caret is in it, as a
+   paragraph mark is shown only while formatting marks are on. The line stands in the margin and
+   moves nothing */
+.ProseMirror .typ-par-holder.typ-par-active {
+	border-left: 2px solid var(--color-primary-300, var(--color-primary-500));
+	margin-left: -2px;
+}
