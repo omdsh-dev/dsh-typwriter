@@ -5,6 +5,15 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+Plugin (DSH `dsh-typwriter`, released as npm 1.7.7):
+
+- feat: the PDF is rebuilt on an **explicit save** only — the autosave no longer triggers a compile, so typing does not re-run tinymist continuously.
+- feat: the workbench panel stays resident across switches, and says when the running host is older than the code on disk (the "restart DSH" trap now announces itself).
+- fix: spelling and grammar checking retired (their engines were a large share of the app bundle); streamed chunks are batched.
+- perf: the workspace route is fetched with the entry, the preview page is cached, and the host keeps its event loop free of blocking work.
+- deps: paraglide 3.2.1, linebreak 2.0, electron, jsdom 31, and a batch of minor/patch updates.
+- chore: project links now point at Typwriter's own repository.
+
 Plugin (DSH `dsh-typwriter`, released as npm 1.7.6):
 
 - fix: compile-on-save now writes **where the project says**, not into a hardcoded `output/`. It reads `.texpile/config.json`'s `outputs.pdf` first (a project that builds into `输出/研究计划.pdf` keeps working), and only falls back to `output/<main>.pdf`.
